@@ -3,7 +3,9 @@ import {
   format,
   startOfDay,
   endOfDay,
-  parseISO
+  parseISO,
+  addDays,
+  isSameDay
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Plus, Scissors, Loader2, Calendar as CalendarIcon, Clock } from 'lucide-react';
@@ -13,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
   const [dayAppointments, setDayAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
+  const todayLabel = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR });
 
   useEffect(() => {
     const fetchDayAppointments = async () => {
@@ -20,15 +23,17 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
       
       setLoading(true);
       try {
-        const start = startOfDay(selectedDate);
-        const end = endOfDay(selectedDate);
+        // Janela expandida para evitar perda por conversão de fuso horário.
+        // Depois filtramos em memória pelo mesmo dia local selecionado.
+        const queryStart = startOfDay(addDays(selectedDate, -1));
+        const queryEnd = endOfDay(addDays(selectedDate, 1));
 
         const { data, error } = await supabase
           .from('agendamentos')
           .select('*')
           .eq('profissional_id', professionalId)
-          .gte('data_hora', start.toISOString())
-          .lte('data_hora', end.toISOString())
+          .gte('data_hora', queryStart.toISOString())
+          .lte('data_hora', queryEnd.toISOString())
           .order('data_hora', { ascending: true });
 
         if (error) {
@@ -37,7 +42,15 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
           setLoading(false);
           return;
         }
-        setDayAppointments(data || []);
+        const sameDayAppointments = (data || []).filter((appointment) => {
+          try {
+            return isSameDay(parseISO(appointment.data_hora), selectedDate);
+          } catch {
+            return false;
+          }
+        });
+
+        setDayAppointments(sameDayAppointments);
       } finally {
         setLoading(false);
       }
@@ -58,6 +71,9 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
     <div className="space-y-4 sm:space-y-6 md:space-y-8 pb-36 sm:pb-40 pt-2 sm:pt-4 px-2 sm:px-4 md:px-0">
       <div className="flex flex-col gap-1">
         <span className="text-gray-400 text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-50">Programação do Dia</span>
+        <span className="text-gray-400 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider opacity-70">
+          Hoje: {todayLabel}
+        </span>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <h3 className="text-base sm:text-lg md:text-xl font-black text-gray-900 font-display capitalize break-words">
             {format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
@@ -78,7 +94,7 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
               className="bg-white/40 border-2 border-dashed border-gray-100 rounded-xl sm:rounded-2xl md:rounded-[2.5rem] p-6 sm:p-8 md:p-12 flex flex-col items-center justify-center text-gray-300"
             >
               <CalendarIcon className="w-8 sm:w-10 h-8 sm:h-10 mb-3 sm:mb-4 opacity-20" />
-              <span className="text-xs sm:text-sm font-bold tracking-tight">Nenhuma atividade hoje</span>
+              <span className="text-xs sm:text-sm font-bold tracking-tight">Nenhuma atividade para esta data</span>
             </motion.div>
           ) : (
             dayAppointments.map((appointment, index) => (
