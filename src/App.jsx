@@ -59,6 +59,7 @@ const MainApp = ({ onLogout }) => {
   const [error, setError] = useState(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentProfessionalId, setCurrentProfessionalId] = useState(null); // ID do profissional logado (null = admin)
 
   useEffect(() => {
     const fetchProfessionals = async () => {
@@ -67,9 +68,22 @@ const MainApp = ({ onLogout }) => {
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Admin definido via user_metadata.role no Supabase Dashboard
-        // (Authentication > Users > Edit user > user_metadata: {"role": "admin"})
-        setIsAdmin(user.user_metadata?.role === 'admin');
+        const admin = user.user_metadata?.role === 'admin';
+        setIsAdmin(admin);
+
+        // Se não for admin, busca o profissional vinculado ao user_id
+        if (!admin) {
+          const { data: profData } = await supabase
+            .from('profissionais')
+            .select('id')
+            .eq('user_id', user.id)
+            .single();
+
+          if (profData) {
+            setCurrentProfessionalId(profData.id);
+            setSelectedProfessionalId(profData.id);
+          }
+        }
       }
 
       const { data, error: err } = await supabase
@@ -183,8 +197,8 @@ const MainApp = ({ onLogout }) => {
           </div>
         </div>
 
-        {/* Seletor de profissional — só visível na aba calendário */}
-        {view === 'calendar' && (
+        {/* Seletor de profissional — só visível na aba calendário para admin */}
+        {view === 'calendar' && isAdmin && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -267,7 +281,7 @@ const MainApp = ({ onLogout }) => {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
-              <AppointmentsManager onEdit={handleEdit} />
+              <AppointmentsManager onEdit={handleEdit} isAdmin={isAdmin} currentProfessionalId={currentProfessionalId} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -296,7 +310,8 @@ const MainApp = ({ onLogout }) => {
         {showBookingForm && (
           <BookingForm
             selectedDate={selectedDate}
-            professionalId={selectedProfessionalId}
+            professionalId={isAdmin ? selectedProfessionalId : currentProfessionalId}
+            isAdmin={isAdmin}
             initialData={editingAppointment}
             onClose={() => { setShowBookingForm(false); setEditingAppointment(null); }}
             onSave={handleSave}
