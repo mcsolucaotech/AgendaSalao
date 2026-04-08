@@ -3,12 +3,12 @@
     "name": "Agenda.Ouro",
     "description": "Sistema de agendamento para salão de beleza",
     "database": "Supabase PostgreSQL",
-    "version": "1.2",
-    "lastUpdated": "2026-04-03",
+    "version": "1.3",
+    "lastUpdated": "2026-04-07",
     "author": "Dev Team (Senior Backend)"
   },
   "schema": {
-    "version": "1.2",
+    "version": "1.3",
     "tables": [
       {
         "name": "profissionais",
@@ -135,7 +135,7 @@
       {
         "name": "agendamentos",
         "description": "Registro de agendamentos/compromissos dos clientes",
-        "version": "1.2",
+        "version": "1.3",
         "fields": [
           {
             "name": "id",
@@ -187,6 +187,12 @@
             "name": "observacoes",
             "type": "TEXT",
             "nullable": true
+          },
+          {
+            "name": "valor_cobrado",
+            "type": "NUMERIC(10,2)",
+            "nullable": true,
+            "description": "Valor efetivamente cobrado neste agendamento (preço da tabela ou negociado)"
           },
           {
             "name": "status",

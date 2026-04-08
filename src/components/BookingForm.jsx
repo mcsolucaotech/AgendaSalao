@@ -3,10 +3,11 @@ import { format, addMinutes, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   X, User, Phone, Clock, ChevronLeft, ChevronRight,
-  Scissors, Sparkles, Star, Zap, ShoppingBag, Check
+  Scissors, Sparkles, Star, Zap, ShoppingBag, Check, Banknote
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
+import { formatBRL } from '../lib/money';
 
 // ---------------------------------------------------------------------------
 // BookingForm — wizard de 3 passos para criar ou editar um agendamento
@@ -22,6 +23,8 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
   const [servicesLoading, setServicesLoading] = useState(true);
   const [professionals, setProfessionals] = useState([]);
   const [professionalsLoading, setProfessionalsLoading] = useState(true);
+  const [precoModo, setPrecoModo] = useState('padrao');
+  const [valorPersonalizado, setValorPersonalizado] = useState('');
 
   const [formData, setFormData] = useState({
     cliente_nome: initialData?.cliente_nome || '',
@@ -36,6 +39,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
   const isEditing = !!initialData;
 
   // Buscar serviços e profissionais do banco
+  // (dependências parciais de initialData evitam re-fetch desnecessário ao re-render do pai)
   useEffect(() => {
     const fetchData = async () => {
       setServicesLoading(true);
@@ -49,13 +53,35 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
       if (servicesRes.error) {
         console.error('Erro ao buscar serviços:', servicesRes.error);
       } else {
-        setServices(servicesRes.data || []);
-        if (!isEditing && servicesRes.data && servicesRes.data.length > 0) {
-          setFormData(prev => ({ 
-            ...prev, 
-            servico: servicesRes.data[0].descricao,
-            servico_id: servicesRes.data[0].id
+        const list = servicesRes.data || [];
+        setServices(list);
+        if (!isEditing && list.length > 0) {
+          const first = list[0];
+          setFormData(prev => ({
+            ...prev,
+            servico: first.descricao,
+            servico_id: first.id
           }));
+          setPrecoModo('padrao');
+          setValorPersonalizado(Number(first.preco).toFixed(2));
+        } else if (isEditing && initialData && list.length > 0) {
+          const svc = list.find((s) => s.id === initialData.servico_id)
+            || list.find((s) => s.descricao === initialData.servico);
+          const precoTabela = svc != null ? Number(svc.preco) : null;
+          const cobrado =
+            initialData.valor_cobrado != null && initialData.valor_cobrado !== ''
+              ? Number(initialData.valor_cobrado)
+              : precoTabela;
+          if (precoTabela != null && cobrado != null && !Number.isNaN(cobrado) && Math.abs(precoTabela - cobrado) < 0.009) {
+            setPrecoModo('padrao');
+            setValorPersonalizado(precoTabela.toFixed(2));
+          } else if (cobrado != null && !Number.isNaN(cobrado)) {
+            setPrecoModo('personalizado');
+            setValorPersonalizado(cobrado.toFixed(2));
+          } else {
+            setPrecoModo('padrao');
+            setValorPersonalizado(precoTabela != null ? precoTabela.toFixed(2) : '');
+          }
         }
       }
 
@@ -70,7 +96,8 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
     };
 
     fetchData();
-  }, [isEditing]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- usa apenas campos de initialData ao abrir criar/editar
+  }, [isEditing, initialData?.id, initialData?.servico_id, initialData?.valor_cobrado]);
 
   // ---------------------------------------------------------------------------
   // Busca horários ocupados no banco e gera slots disponíveis
@@ -126,6 +153,22 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
   };
 
+  const selectedService = services.find((s) => s.id === formData.servico_id);
+  const precoTabelaServico = selectedService != null ? Number(selectedService.preco) : NaN;
+
+  const resolveValorCobrado = () => {
+    if (precoModo === 'padrao') {
+      if (Number.isNaN(precoTabelaServico)) return { ok: false, value: null, message: 'Serviço sem preço na tabela.' };
+      return { ok: true, value: precoTabelaServico, message: null };
+    }
+    const raw = String(valorPersonalizado).trim().replace(/\s/g, '').replace(',', '.');
+    const n = parseFloat(raw);
+    if (Number.isNaN(n) || n < 0) {
+      return { ok: false, value: null, message: 'Informe um valor válido (≥ 0).' };
+    }
+    return { ok: true, value: n, message: null };
+  };
+
   // ---------------------------------------------------------------------------
   // Submissão: INSERT ou UPDATE
   // ---------------------------------------------------------------------------
@@ -133,6 +176,40 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
     if (!formData.cliente_nome || !formData.data_hora) return;
     setLoading(true);
     setSubmitError(null);
+
+    let conflictQuery = supabase
+      .from('agendamentos')
+      .select('id')
+      .eq('profissional_id', formData.profissional_id)
+      .eq('data_hora', formData.data_hora)
+      .limit(1);
+
+    if (isEditing) {
+      conflictQuery = conflictQuery.neq('id', initialData.id);
+    }
+
+    const { data: conflictRows, error: conflictErr } = await conflictQuery;
+
+    if (conflictErr) {
+      setSubmitError('Não foi possível verificar disponibilidade. Tente de novo.');
+      setLoading(false);
+      return;
+    }
+
+    if (conflictRows?.length > 0) {
+      setSubmitError(
+        'Esta profissional já tem agendamento neste horário. Escolha outro horário ou outra funcionária — o mesmo horário pode ser usado por outras funcionárias.'
+      );
+      setLoading(false);
+      return;
+    }
+
+    const { ok, value: valorCobrado, message: priceMsg } = resolveValorCobrado();
+    if (!ok || valorCobrado == null) {
+      setSubmitError(priceMsg || 'Valor inválido.');
+      setLoading(false);
+      return;
+    }
 
     const payload = {
       data_hora: formData.data_hora,
@@ -142,6 +219,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
       servico_id: formData.servico_id,
       profissional_id: formData.profissional_id,
       observacoes: formData.observacoes,
+      valor_cobrado: valorCobrado,
     };
 
     let err;
@@ -179,7 +257,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
   // Steps
   // ---------------------------------------------------------------------------
   const renderStep1 = () => (
-    <motion.div key="s1" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="space-y-2 sm:space-y-3">
+    <Motion.div key="s1" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="space-y-2 sm:space-y-3">
       {servicesLoading ? (
         <div className="flex justify-center py-8 sm:py-12">
           <div className="w-7 h-7 sm:w-8 sm:h-8 border-4 border-lavender-200 border-t-lavender-600 rounded-full animate-spin" />
@@ -192,13 +270,15 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
         services.map((s) => (
           <button
             key={s.id}
-            onClick={() => { 
-              setFormData(f => ({ 
-                ...f, 
+            onClick={() => {
+              setFormData(f => ({
+                ...f,
                 servico: s.descricao,
                 servico_id: s.id
-              })); 
-              setStep(2); 
+              }));
+              setPrecoModo('padrao');
+              setValorPersonalizado(Number(s.preco).toFixed(2));
+              setStep(2);
             }}
             className={`
               w-full p-3 sm:p-4 rounded-lg sm:rounded-2xl md:rounded-3xl border-2 transition-all flex items-center justify-between group
@@ -223,11 +303,11 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
           </button>
         ))
       )}
-    </motion.div>
+    </Motion.div>
   );
 
   const renderStep2 = () => (
-    <motion.div key="s2" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="space-y-3 sm:space-y-4">
+    <Motion.div key="s2" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="space-y-3 sm:space-y-4">
       {slotsLoading ? (
         <div className="flex justify-center py-8 sm:py-12">
           <div className="w-7 h-7 sm:w-8 sm:h-8 border-4 border-lavender-200 border-t-lavender-600 rounded-full animate-spin" />
@@ -254,11 +334,13 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
           ))}
         </div>
       )}
-    </motion.div>
+    </Motion.div>
   );
 
-  const renderStep3 = () => (
-    <motion.div key="s3" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="space-y-4 sm:space-y-5">
+  const renderStep3 = () => {
+    const precificacao = resolveValorCobrado();
+    return (
+    <Motion.div key="s3" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="space-y-4 sm:space-y-5">
       <div className="space-y-3 sm:space-y-4">
         {/* Nome */}
         <div className="relative">
@@ -292,6 +374,64 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
           value={formData.observacoes}
           onChange={e => setFormData(f => ({ ...f, observacoes: e.target.value }))}
         />
+
+        {/* Valor cobrado: tabela ou personalizado */}
+        {selectedService && (
+          <div className="space-y-3 p-3 sm:p-4 bg-gray-50 rounded-lg sm:rounded-2xl border border-gray-100">
+            <div className="flex items-center gap-2 text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-widest">
+              <Banknote className="w-3.5 h-3.5 text-lavender-500" />
+              Valor do agendamento
+            </div>
+            <p className="text-xs text-gray-500 font-medium">
+              Preço na tabela: <span className="font-bold text-gray-800">{formatBRL(precoTabelaServico)}</span>
+            </p>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="radio"
+                  name="preco-modo"
+                  className="w-4 h-4 accent-lavender-600"
+                  checked={precoModo === 'padrao'}
+                  onChange={() => {
+                    setPrecoModo('padrao');
+                    if (!Number.isNaN(precoTabelaServico)) setValorPersonalizado(precoTabelaServico.toFixed(2));
+                  }}
+                />
+                <span className="text-sm font-bold text-gray-800">Usar preço da tabela</span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="radio"
+                  name="preco-modo"
+                  className="w-4 h-4 mt-0.5 accent-lavender-600"
+                  checked={precoModo === 'personalizado'}
+                  onChange={() => {
+                    setPrecoModo('personalizado');
+                    if (!String(valorPersonalizado).trim() && !Number.isNaN(precoTabelaServico)) {
+                      setValorPersonalizado(precoTabelaServico.toFixed(2));
+                    }
+                  }}
+                />
+                <span className="flex-1 min-w-0">
+                  <span className="text-sm font-bold text-gray-800 block">Outro valor neste agendamento</span>
+                  {precoModo === 'personalizado' && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-gray-500 font-black text-sm">R$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0,00"
+                        className="flex-1 min-w-0 py-2.5 px-3 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-lavender-500 outline-none font-bold text-sm"
+                        value={valorPersonalizado}
+                        onChange={(e) => setValorPersonalizado(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </span>
+              </label>
+            </div>
+          </div>
+        )}
 
         {/* Seletor de Profissional (apenas ao editar) */}
         {isEditing && !professionalsLoading && professionals.length > 0 && (
@@ -331,6 +471,14 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
           <div className="p-2 bg-lavender-600 rounded-lg text-white"><ShoppingBag className="w-4 h-4" /></div>
           <span className="font-bold text-gray-800 text-sm">{formData.servico}</span>
         </div>
+        {selectedService && (
+          <div className="flex items-center gap-3 pt-1">
+            <div className="p-2 bg-lavender-600 rounded-lg text-white"><Banknote className="w-4 h-4" /></div>
+            <span className="font-bold text-lavender-700 text-sm">
+              {formatBRL(precificacao.ok ? precificacao.value : precoTabelaServico)}
+            </span>
+          </div>
+        )}
         {formData.profissional_id && professionals.length > 0 && (
           <div className="flex items-center gap-3 pt-2 border-t border-lavender-200">
             <div className="p-2 bg-lavender-600 rounded-lg text-white"><User className="w-4 h-4" /></div>
@@ -348,7 +496,12 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
 
       <button
         onClick={handleSubmit}
-        disabled={loading || !formData.cliente_nome || !formData.data_hora}
+        disabled={
+          loading
+          || !formData.cliente_nome
+          || !formData.data_hora
+          || !precificacao.ok
+        }
         className="w-full py-5 bg-gray-900 text-white rounded-[2rem] font-black text-lg shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {loading
@@ -356,14 +509,15 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
           : isEditing ? 'Atualizar Agendamento' : 'Confirmar Agendamento'
         }
       </button>
-    </motion.div>
-  );
+    </Motion.div>
+    );
+  };
 
   const stepTitles = ['Qual serviço?', 'Escolha o horário', 'Dados da cliente'];
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-gray-900/40 backdrop-blur-md">
-      <motion.div
+      <Motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
@@ -372,9 +526,9 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
         {/* Tela de sucesso */}
         {success && (
           <div className="absolute inset-0 z-[110] bg-white/97 flex flex-col items-center justify-center p-6 sm:p-10 text-center">
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring' }} className="w-16 h-16 sm:w-24 sm:h-24 bg-green-100 rounded-full flex items-center justify-center mb-4 sm:mb-6">
+            <Motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring' }} className="w-16 h-16 sm:w-24 sm:h-24 bg-green-100 rounded-full flex items-center justify-center mb-4 sm:mb-6">
               <Check className="w-8 h-8 sm:w-12 sm:h-12 text-green-600" />
-            </motion.div>
+            </Motion.div>
             <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-gray-900 mb-1 sm:mb-2 font-display">
               {isEditing ? 'Atualizado!' : 'Confirmado!'}
             </h2>
@@ -412,7 +566,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
             {step === 3 && renderStep3()}
           </AnimatePresence>
         </div>
-      </motion.div>
+      </Motion.div>
     </div>
   );
 };

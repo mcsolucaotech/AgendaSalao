@@ -6,9 +6,10 @@ import {
   parseISO
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Plus, User, Scissors, Loader2, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { Plus, Scissors, Loader2, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { formatBRL } from '../lib/money';
 import { supabase } from '../lib/supabase';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 
 const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
   const [dayAppointments, setDayAppointments] = useState([]);
@@ -72,17 +73,17 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
       <div className="space-y-3 sm:space-y-4">
         <AnimatePresence mode="popLayout">
           {dayAppointments.length === 0 ? (
-            <motion.div 
+            <Motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-white/40 border-2 border-dashed border-gray-100 rounded-xl sm:rounded-2xl md:rounded-[2.5rem] p-6 sm:p-8 md:p-12 flex flex-col items-center justify-center text-gray-300"
             >
               <CalendarIcon className="w-8 sm:w-10 h-8 sm:h-10 mb-3 sm:mb-4 opacity-20" />
-              <span className="text-xs sm:text-sm font-bold tracking-tight">Nenhuma atividade hoje</span>
-            </motion.div>
+              <span className="text-xs sm:text-sm font-bold tracking-tight">Nenhuma atividade para esta data</span>
+            </Motion.div>
           ) : (
             dayAppointments.map((appointment, index) => (
-              <motion.div 
+              <Motion.div 
                 key={appointment.id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -105,15 +106,20 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
                       <Scissors className="w-3 h-3 text-lavender-400 flex-shrink-0" />
                       <span className="truncate">{appointment.servico}</span>
                     </div>
+                    {appointment.valor_cobrado != null && (
+                      <div className="text-[10px] sm:text-xs font-black text-lavender-700 pt-0.5">
+                        {formatBRL(appointment.valor_cobrado)}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </motion.div>
+              </Motion.div>
             ))
           )}
         </AnimatePresence>
       </div>
 
-      <motion.button
+      <Motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => onAddBooking()}
@@ -121,8 +127,10 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
       >
         <div className="absolute inset-0 bg-gradient-to-br from-lavender-400 to-lavender-700 opacity-0 group-hover:opacity-100 transition-opacity" />
         <Plus className="w-5 sm:w-6 md:w-6 h-5 sm:h-6 md:h-6 relative z-10 flex-shrink-0" />
-        <span className="hidden sm:block font-black font-display tracking-tight text-[10px] md:text-sm uppercase relative z-10 whitespace-nowrap">Novo Agendamento</span>
-      </motion.button>
+        <span className="hidden sm:inline font-black font-display tracking-tight text-[10px] md:text-sm uppercase relative z-10 whitespace-nowrap">
+          Novo agendamento
+        </span>
+      </Motion.button>
     </div>
   );
 };

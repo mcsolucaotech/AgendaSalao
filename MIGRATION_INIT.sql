@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS agendamentos (
   servico_id UUID REFERENCES servicos(id) ON DELETE SET NULL,
   profissional_id UUID REFERENCES profissionais(id) ON DELETE CASCADE NOT NULL,
   observacoes TEXT,
+  valor_cobrado NUMERIC(10, 2),
   status TEXT DEFAULT 'Confirmado' CHECK (status IN ('Pendente', 'Confirmado', 'Cancelado', 'Finalizado'))
 );
 

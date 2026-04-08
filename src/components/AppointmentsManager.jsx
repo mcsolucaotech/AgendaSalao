@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { formatBRL } from '../lib/money';
 import { format, parseISO, startOfToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -35,6 +36,8 @@ const AppointmentsManager = ({ onEdit }) => {
         servico,
         observacoes,
         status,
+        profissional_id,
+        valor_cobrado,
         profissionais ( nome )
       `)
       .order('data_hora', { ascending: true });
@@ -177,6 +180,11 @@ const AppointmentsManager = ({ onEdit }) => {
                     <div className="px-2 sm:px-3 py-1 bg-lavender-50 text-lavender-600 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest">
                       {format(parseISO(a.data_hora), 'HH:mm')}
                     </div>
+                    {a.valor_cobrado != null && (
+                      <div className="text-[10px] sm:text-xs font-black text-gray-900">
+                        {formatBRL(a.valor_cobrado)}
+                      </div>
+                    )}
                     <div className="text-[8px] sm:text-[10px] font-bold text-gray-400">
                       {format(parseISO(a.data_hora), 'dd MMM', { locale: ptBR })}
                     </div>
