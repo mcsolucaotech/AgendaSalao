@@ -22,6 +22,7 @@ const AdminDashboard = ({ onClose }) => {
     categoria: '',
     preco: ''
   });
+  const [serviceError, setServiceError] = useState('');
 
   const [professionalForm, setProfessionalForm] = useState({
     nome: '',
@@ -54,7 +55,18 @@ const AdminDashboard = ({ onClose }) => {
 
   // Service CRUD
   const handleAddService = async () => {
-    if (!serviceForm.descricao || !serviceForm.categoria || !serviceForm.preco) return;
+    setServiceError('');
+    
+    if (!serviceForm.descricao || !serviceForm.categoria || !serviceForm.preco) {
+      setServiceError('Preencha todos os campos');
+      return;
+    }
+
+    const precoValue = parseFloat(serviceForm.preco);
+    if (isNaN(precoValue) || precoValue <= 0) {
+      setServiceError('Preço inválido');
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -62,21 +74,37 @@ const AdminDashboard = ({ onClose }) => {
         .insert([{
           descricao: serviceForm.descricao,
           categoria: serviceForm.categoria,
-          preco: parseFloat(serviceForm.preco)
+          preco: precoValue
         }]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao adicionar serviço:', error);
+        setServiceError(error.message);
+        return;
+      }
 
       setServiceForm({ descricao: '', categoria: '', preco: '' });
       setShowAddService(false);
       loadData();
     } catch (error) {
       console.error('Erro ao adicionar serviço:', error);
+      setServiceError('Erro ao adicionar serviço');
     }
   };
 
   const handleEditService = async () => {
-    if (!editingService || !serviceForm.descricao || !serviceForm.categoria || !serviceForm.preco) return;
+    setServiceError('');
+    
+    if (!editingService || !serviceForm.descricao || !serviceForm.categoria || !serviceForm.preco) {
+      setServiceError('Preencha todos os campos');
+      return;
+    }
+
+    const precoValue = parseFloat(serviceForm.preco);
+    if (isNaN(precoValue) || precoValue <= 0) {
+      setServiceError('Preço inválido');
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -84,17 +112,23 @@ const AdminDashboard = ({ onClose }) => {
         .update({
           descricao: serviceForm.descricao,
           categoria: serviceForm.categoria,
-          preco: parseFloat(serviceForm.preco)
+          preco: precoValue
         })
         .eq('id', editingService.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao editar serviço:', error);
+        setServiceError(error.message);
+        return;
+      }
 
       setEditingService(null);
       setServiceForm({ descricao: '', categoria: '', preco: '' });
+      setShowAddService(false);
       loadData();
     } catch (error) {
       console.error('Erro ao editar serviço:', error);
+      setServiceError('Erro ao editar serviço');
     }
   };
 
@@ -175,6 +209,7 @@ const AdminDashboard = ({ onClose }) => {
   };
 
   const startEditService = (service) => {
+    setServiceError('');
     setEditingService(service);
     setServiceForm({
       descricao: service.descricao,
@@ -258,7 +293,7 @@ const AdminDashboard = ({ onClose }) => {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <h3 className="text-lg sm:text-xl font-black text-gray-900 font-display">Gerenciar Serviços</h3>
                   <button
-                    onClick={() => setShowAddService(true)}
+                    onClick={() => { setServiceError(''); setShowAddService(true); }}
                     className="flex items-center justify-center gap-2 bg-lavender-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-2xl font-bold hover:bg-lavender-700 transition-colors w-full sm:w-auto"
                   >
                     <Plus className="w-4 h-4 flex-shrink-0" />
@@ -375,10 +410,14 @@ const AdminDashboard = ({ onClose }) => {
                       onChange={(e) => setServiceForm(prev => ({ ...prev, preco: e.target.value }))}
                       className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
                     />
+                    {serviceError && (
+                      <p className="text-red-500 text-sm">{serviceError}</p>
+                    )}
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-6">
                     <button
                       onClick={() => {
+                        setServiceError('');
                         setShowAddService(false);
                         setEditingService(null);
                         setServiceForm({ descricao: '', categoria: '', preco: '' });
