@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import {
   Settings, Users, Scissors, Plus, Edit, Trash2,
-  X, Check, AlertCircle, Loader2
+  X, Check, AlertCircle, Loader2, DollarSign, Calendar, TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { format, parseISO, startOfDay, endOfDay, subDays, isAfter, isBefore, isEqual } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const AdminDashboard = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState('services');
@@ -27,6 +29,15 @@ const AdminDashboard = ({ onClose }) => {
   const [professionalForm, setProfessionalForm] = useState({
     nome: '',
     foto_url: ''
+  });
+
+  // Revenue tracking state
+  const [revenueData, setRevenueData] = useState([]);
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  const [selectedProfessional, setSelectedProfessional] = useState(null);
+  const [dateRange, setDateRange] = useState({
+    start: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+    end: format(new Date(), 'yyyy-MM-dd')
   });
 
   // Load data
@@ -52,6 +63,46 @@ const AdminDashboard = ({ onClose }) => {
 
     loadData();
   }, []);
+
+  // Revenue calculation
+  const calculateRevenue = async () => {
+    setRevenueLoading(true);
+    try {
+      let query = supabase
+        .from('agendamentos')
+        .select(`
+          id,
+          data_hora,
+          cliente_nome,
+          servico,
+          valor_cobrado,
+          profissional_id,
+          profissionais ( nome )
+        `)
+        .gte('data_hora', startOfDay(parseISO(dateRange.start)).toISOString())
+        .lte('data_hora', endOfDay(parseISO(dateRange.end)).toISOString())
+        .order('data_hora', { ascending: false });
+
+      const { data, error } = await query;
+      
+      if (error) throw error;
+
+      const filtered = selectedProfessional 
+        ? data.filter(item => item.profissional_id === selectedProfessional)
+        : data;
+
+      setRevenueData(filtered);
+    } catch (error) {
+      console.error('Erro ao calcular faturamento:', error);
+    }
+    setRevenueLoading(false);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'revenue') {
+      calculateRevenue();
+    }
+  }, [activeTab, selectedProfessional, dateRange]);
 
   // Service CRUD
   const handleAddService = async () => {
@@ -284,6 +335,15 @@ const AdminDashboard = ({ onClose }) => {
               <Users className="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1 flex-shrink-0" />
               <span className="text-[9px] sm:text-[10px] md:text-xs hidden sm:block">Profissionais</span>
             </button>
+            <button
+              onClick={() => setActiveTab('revenue')}
+              className={`flex-1 py-3 sm:py-4 px-2 sm:px-6 text-center font-bold transition-colors min-w-0 ${
+                activeTab === 'revenue' ? 'text-lavender-600 border-b-2 border-lavender-600' : 'text-gray-400'
+              }`}
+            >
+              <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1 flex-shrink-0" />
+              <span className="text-[9px] sm:text-[10px] md:text-xs hidden sm:block">Faturamento</span>
+            </button>
           </div>
 
           {/* Content */}
@@ -366,6 +426,144 @@ const AdminDashboard = ({ onClose }) => {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Revenue Tab */}
+            {activeTab === 'revenue' && (
+              <div className="space-y-4 sm:space-y-6">
+                <h3 className="text-lg sm:text-xl font-black text-gray-900 font-display">Faturamento por Profissional</h3>
+                
+                {/* Filters */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                  <div>
+                    <label className="block text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Data Inicial</label>
+                    <input
+                      type="date"
+                      value={dateRange.start}
+                      onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                      className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Data Final</label>
+                    <input
+                      type="date"
+                      value={dateRange.end}
+                      onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                      className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Profissional</label>
+                    <select
+                      value={selectedProfessional || ''}
+                      onChange={(e) => setSelectedProfessional(e.target.value || null)}
+                      className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm bg-white"
+                    >
+                      <option value="">Todas</option>
+                      {professionals.map((p) => (
+                        <option key={p.id} value={p.id}>{p.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="bg-gradient-to-br from-lavender-500 to-lavender-700 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white">
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-80">Total Faturado</span>
+                    </div>
+                    <p className="text-2xl sm:text-3xl font-black">
+                      {revenueLoading ? '...' : `R$ ${revenueData.reduce((sum, a) => sum + (Number(a.valor_cobrado) || 0), 0).toFixed(2).replace('.', ',')}`}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-lavender-600" />
+                      <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-gray-400">Total de Agendamentos</span>
+                    </div>
+                    <p className="text-2xl sm:text-3xl font-black text-gray-900">
+                      {revenueLoading ? '...' : revenueData.length}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                      <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-gray-400">Média por Agendamento</span>
+                    </div>
+                    <p className="text-2xl sm:text-3xl font-black text-gray-900">
+                      {revenueLoading ? '...' : `R$ ${revenueData.length > 0 ? (revenueData.reduce((sum, a) => sum + (Number(a.valor_cobrado) || 0), 0) / revenueData.length).toFixed(2).replace('.', ',') : '0,00'}`}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Revenue by Professional */}
+                <div className="space-y-3">
+                  <h4 className="text-sm sm:text-base font-bold text-gray-900">Faturamento por Profissional</h4>
+                  {revenueLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-lavender-600" />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {professionals
+                        .map(p => ({
+                          ...p,
+                          total: revenueData
+                            .filter(a => a.profissional_id === p.id)
+                            .reduce((sum, a) => sum + (Number(a.valor_cobrado) || 0), 0),
+                          count: revenueData.filter(a => a.profissional_id === p.id).length
+                        }))
+                        .filter(p => selectedProfessional ? p.id === selectedProfessional : p.count > 0)
+                        .sort((a, b) => b.total - a.total)
+                        .map(p => (
+                          <div key={p.id} className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg sm:rounded-2xl">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-lavender-100 flex items-center justify-center">
+                                <Users className="w-5 h-5 text-lavender-600" />
+                              </div>
+                              <div>
+                                <p className="font-bold text-gray-900 text-sm">{p.nome}</p>
+                                <p className="text-xs text-gray-500">{p.count} agendamento{p.count !== 1 ? 's' : ''}</p>
+                              </div>
+                            </div>
+                            <p className="font-black text-lavender-600 text-sm sm:text-base">
+                              R$ {p.total.toFixed(2).replace('.', ',')}
+                            </p>
+                          </div>
+                        ))}
+                      {revenueData.length === 0 && (
+                        <div className="text-center py-8 text-gray-400">
+                          <p className="text-sm">Nenhum agendamento no período selecionado</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Appointments List */}
+                <div className="space-y-3">
+                  <h4 className="text-sm sm:text-base font-bold text-gray-900">Detalhes dos Agendamentos</h4>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {revenueData.map((appointment) => (
+                      <div key={appointment.id} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-lg sm:rounded-xl">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-gray-900 text-sm truncate">{appointment.cliente_nome}</p>
+                          <p className="text-xs text-gray-500">{appointment.servico} • {appointment.profissionais?.nome || '—'}</p>
+                          <p className="text-[10px] text-gray-400">
+                            {appointment.data_hora ? format(parseISO(appointment.data_hora), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : '—'}
+                          </p>
+                        </div>
+                        <p className="font-black text-lavender-600 text-sm flex-shrink-0 ml-2">
+                          R$ {Number(appointment.valor_cobrado || 0).toFixed(2).replace('.', ',')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
