@@ -42,7 +42,6 @@ const AdminDashboard = ({ onClose }) => {
   });
 
   // Load data
-  useEffect(() => {
   const loadData = async () => {
     setLoading(true);
     try {
@@ -62,6 +61,7 @@ const AdminDashboard = ({ onClose }) => {
     setLoading(false);
   };
 
+  useEffect(() => {
     loadData();
   }, []);
 
