@@ -9,9 +9,15 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
+  const [attempts, setAttempts] = useState(0);
+  const [blockedUntil, setBlockedUntil] = useState(null);
+
+  const isBlocked = blockedUntil && new Date() < blockedUntil;
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (isBlocked) return;
+
     setLoading(true);
     setError(null);
 
@@ -19,16 +25,25 @@ const Login = () => {
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
       if (authError) {
-        if (authError.message === 'Invalid login credentials') {
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
+        if (newAttempts >= 5) {
+          const until = new Date(Date.now() + 30_000);
+          setBlockedUntil(until);
+          setAttempts(0);
+          setError('Muitas tentativas. Aguarde 30 segundos.');
+        } else if (authError.message === 'Invalid login credentials') {
           setError('E-mail ou senha incorretos.');
         } else if (authError.message.includes('Email not confirmed')) {
-          setError('E-mail não confirmado. Verifique sua caixa de entrada ou desative a confirmação no Supabase.');
+          setError('E-mail não confirmado. Verifique sua caixa de entrada.');
         } else {
-          setError(authError.message);
+          setError('Erro ao autenticar. Tente novamente.');
         }
+      } else {
+        setAttempts(0);
+        setBlockedUntil(null);
       }
-    } catch (err) {
-      console.error('[Login] Erro de rede:', err);
+    } catch {
       setError('Falha de conexão com o servidor. Verifique sua internet e tente novamente.');
     }
 
@@ -108,15 +123,17 @@ const Login = () => {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || isBlocked}
               className={`
                 w-full py-3 sm:py-4 md:py-5 bg-gray-900 text-white rounded-xl sm:rounded-2xl font-black text-sm sm:text-base shadow-2xl shadow-gray-200
                 flex items-center justify-center gap-2 hover:bg-lavender-600 transition-all active:scale-95
-                ${loading ? 'opacity-70 cursor-not-allowed' : ''}
+                ${loading || isBlocked ? 'opacity-70 cursor-not-allowed' : ''}
               `}
             >
               {loading ? (
                 <div className="w-5 h-5 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : isBlocked ? (
+                'Aguarde 30 segundos...'
               ) : (
                 <>
                   <LogIn className="w-4 sm:w-5 h-4 sm:h-5" />

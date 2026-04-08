@@ -7,7 +7,7 @@ import AppointmentsManager from './components/AppointmentsManager';
 import AdminDashboard from './components/AdminDashboard';
 import {
   Users, LogOut, Sparkles,
-  ChevronDown, AlertCircle, Calendar as CalendarIcon,
+  AlertCircle, Calendar as CalendarIcon,
   ClipboardList, Loader2, Settings
 } from 'lucide-react';
 import Login from './components/Login';
@@ -65,11 +65,11 @@ const MainApp = ({ onLogout }) => {
       setLoading(true);
       setError(null);
 
-      // Verificar se usuário é admin
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Simplificar: considerar admin se email contém "admin" ou é específico
-        setIsAdmin(user.email?.includes('admin') || user.email === 'admin@agendaouro.com');
+        // Admin definido via user_metadata.role no Supabase Dashboard
+        // (Authentication > Users > Edit user > user_metadata: {"role": "admin"})
+        setIsAdmin(user.user_metadata?.role === 'admin');
       }
 
       const { data, error: err } = await supabase
@@ -324,8 +324,7 @@ const App = () => {
   useEffect(() => {
     // onAuthStateChange dispara INITIAL_SESSION automaticamente no setup
     // Isso substitui o getSession() e evita race conditions
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
-      console.log('[Auth]', event, s?.user?.email || 'sem sessão');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       setInitializing(false);
     });

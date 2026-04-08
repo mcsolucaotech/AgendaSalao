@@ -29,8 +29,14 @@ const AdminDashboard = ({ onClose }) => {
 
   const [professionalForm, setProfessionalForm] = useState({
     nome: '',
+    email: '',
+    senha: '',
     percentual_salao: ''
   });
+  const [professionalError, setProfessionalError] = useState('');
+
+  // Confirmação de exclusão inline
+  const [confirmDelete, setConfirmDelete] = useState(null); // { type: 'service'|'professional', id }
   
   // Revenue tracking state
   const [revenueData, setRevenueData] = useState([]);
@@ -185,8 +191,6 @@ const AdminDashboard = ({ onClose }) => {
   };
 
   const handleDeleteService = async (id) => {
-    if (!confirm('Tem certeza que deseja excluir este serviço?')) return;
-
     try {
       const { error } = await supabase
         .from('servicos')
@@ -202,55 +206,83 @@ const AdminDashboard = ({ onClose }) => {
 
   // Professional CRUD
   const handleAddProfessional = async () => {
-    if (!professionalForm.nome) return;
+    setProfessionalError('');
+    if (!professionalForm.nome) { setProfessionalError('Nome é obrigatório.'); return; }
+    if (!professionalForm.email) { setProfessionalError('E-mail é obrigatório.'); return; }
+    if (!professionalForm.senha || professionalForm.senha.length < 6) {
+      setProfessionalError('Senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
 
     const percentual = professionalForm.percentual_salao !== '' ? parseFloat(professionalForm.percentual_salao) : null;
 
     try {
+      // 1. Cria o usuário no Auth via RPC (requer função create_auth_user no Supabase)
+      const { data: rpcData, error: rpcError } = await supabase.rpc('create_professional_user', {
+        p_email: professionalForm.email,
+        p_password: professionalForm.senha,
+        p_nome: professionalForm.nome,
+      });
+
+      if (rpcError) throw rpcError;
+
+      const userId = rpcData;
+
+      // 2. Insere o profissional vinculado ao user_id
       const { error } = await supabase
         .from('profissionais')
         .insert([{
           nome: professionalForm.nome,
+          email: professionalForm.email,
+          user_id: userId,
           percentual_salao: percentual
         }]);
 
       if (error) throw error;
 
-      setProfessionalForm({ nome: '', percentual_salao: '' });
+      setProfessionalForm({ nome: '', email: '', senha: '', percentual_salao: '' });
       setShowAddProfessional(false);
       loadData();
     } catch (error) {
       console.error('Erro ao adicionar profissional:', error);
+      setProfessionalError(error.message || 'Erro ao criar profissional.');
     }
   };
 
   const handleEditProfessional = async () => {
-    if (!editingProfessional || !professionalForm.nome) return;
+    setProfessionalError('');
+    if (!editingProfessional || !professionalForm.nome) { setProfessionalError('Nome é obrigatório.'); return; }
 
     const percentual = professionalForm.percentual_salao !== '' ? parseFloat(professionalForm.percentual_salao) : null;
 
     try {
+      const updateData = {
+        nome: professionalForm.nome,
+        percentual_salao: percentual,
+      };
+
+      // Atualiza email se foi alterado
+      if (professionalForm.email && professionalForm.email !== editingProfessional.email) {
+        updateData.email = professionalForm.email;
+      }
+
       const { error } = await supabase
         .from('profissionais')
-        .update({
-          nome: professionalForm.nome,
-          percentual_salao: percentual
-        })
+        .update(updateData)
         .eq('id', editingProfessional.id);
 
       if (error) throw error;
 
       setEditingProfessional(null);
-      setProfessionalForm({ nome: '', percentual_salao: '' });
+      setProfessionalForm({ nome: '', email: '', senha: '', percentual_salao: '' });
       loadData();
     } catch (error) {
       console.error('Erro ao editar profissional:', error);
+      setProfessionalError(error.message || 'Erro ao editar profissional.');
     }
   };
 
   const handleDeleteProfessional = async (id) => {
-    if (!confirm('Tem certeza que deseja excluir este profissional?')) return;
-
     try {
       const { error } = await supabase
         .from('profissionais')
@@ -275,9 +307,12 @@ const AdminDashboard = ({ onClose }) => {
   };
 
   const startEditProfessional = (professional) => {
+    setProfessionalError('');
     setEditingProfessional(professional);
     setProfessionalForm({
       nome: professional.nome,
+      email: professional.email || '',
+      senha: '',
       percentual_salao: professional.percentual_salao != null ? professional.percentual_salao.toString() : ''
     });
   };
@@ -374,18 +409,21 @@ const AdminDashboard = ({ onClose }) => {
                         <p className="text-xs sm:text-sm text-gray-500">{service.categoria} • R$ {service.preco.toFixed(2)}</p>
                       </div>
                       <div className="flex gap-2 self-end sm:self-auto">
-                        <button
-                          onClick={() => startEditService(service)}
-                          className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 flex items-center justify-center transition-colors flex-shrink-0"
-                        >
-                          <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteService(service.id)}
-                          className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center transition-colors flex-shrink-0"
-                        >
-                          <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </button>
+                        {confirmDelete?.type === 'service' && confirmDelete?.id === service.id ? (
+                          <>
+                            <button onClick={() => { handleDeleteService(service.id); setConfirmDelete(null); }} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-black hover:bg-red-700 transition-colors">Confirmar</button>
+                            <button onClick={() => setConfirmDelete(null)} className="px-3 py-1.5 rounded-lg bg-gray-200 text-gray-600 text-xs font-black hover:bg-gray-300 transition-colors">Cancelar</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => startEditService(service)} className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 flex items-center justify-center transition-colors flex-shrink-0">
+                              <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </button>
+                            <button onClick={() => setConfirmDelete({ type: 'service', id: service.id })} className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center transition-colors flex-shrink-0">
+                              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -412,6 +450,9 @@ const AdminDashboard = ({ onClose }) => {
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-gray-900 text-sm sm:text-base truncate">{professional.nome}</p>
                         <div className="flex items-center gap-2 flex-wrap">
+                          {professional.email && (
+                            <span className="text-xs text-gray-400 truncate">{professional.email}</span>
+                          )}
                           {professional.percentual_salao != null && (
                             <span className="inline-flex items-center gap-1 text-xs font-bold text-lavender-700 bg-lavender-100 px-2 py-0.5 rounded-full">
                               Salão: {professional.percentual_salao}%
@@ -420,18 +461,21 @@ const AdminDashboard = ({ onClose }) => {
                         </div>
                       </div>
                       <div className="flex gap-2 self-end sm:self-auto">
-                        <button
-                          onClick={() => startEditProfessional(professional)}
-                          className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 flex items-center justify-center transition-colors flex-shrink-0"
-                        >
-                          <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProfessional(professional.id)}
-                          className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center transition-colors flex-shrink-0"
-                        >
-                          <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </button>
+                        {confirmDelete?.type === 'professional' && confirmDelete?.id === professional.id ? (
+                          <>
+                            <button onClick={() => { handleDeleteProfessional(professional.id); setConfirmDelete(null); }} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-black hover:bg-red-700 transition-colors">Confirmar</button>
+                            <button onClick={() => setConfirmDelete(null)} className="px-3 py-1.5 rounded-lg bg-gray-200 text-gray-600 text-xs font-black hover:bg-gray-300 transition-colors">Cancelar</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => startEditProfessional(professional)} className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 flex items-center justify-center transition-colors flex-shrink-0">
+                              <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </button>
+                            <button onClick={() => setConfirmDelete({ type: 'professional', id: professional.id })} className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center transition-colors flex-shrink-0">
+                              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -689,6 +733,22 @@ const AdminDashboard = ({ onClose }) => {
                       onChange={(e) => setProfessionalForm(prev => ({ ...prev, nome: e.target.value }))}
                       className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
                     />
+                    <input
+                      type="email"
+                      placeholder="E-mail de acesso"
+                      value={professionalForm.email}
+                      onChange={(e) => setProfessionalForm(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
+                    />
+                    {!editingProfessional && (
+                      <input
+                        type="password"
+                        placeholder="Senha (mín. 6 caracteres)"
+                        value={professionalForm.senha}
+                        onChange={(e) => setProfessionalForm(prev => ({ ...prev, senha: e.target.value }))}
+                        className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
+                      />
+                    )}
                     <div>
                       <label className="block text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Percentual do Salão (%)</label>
                       <input
@@ -703,13 +763,17 @@ const AdminDashboard = ({ onClose }) => {
                       />
                       <p className="text-[10px] text-gray-400 mt-1">Percentual descontado do total arrecadado pelo profissional</p>
                     </div>
+                    {professionalError && (
+                      <p className="text-red-500 text-xs font-bold">{professionalError}</p>
+                    )}
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-6">
                     <button
                       onClick={() => {
                         setShowAddProfessional(false);
                         setEditingProfessional(null);
-                        setProfessionalForm({ nome: '', percentual_salao: '' });
+                        setProfessionalError('');
+                        setProfessionalForm({ nome: '', email: '', senha: '', percentual_salao: '' });
                       }}
                       className="flex-1 py-3 sm:py-4 bg-gray-100 text-gray-600 rounded-lg sm:rounded-2xl font-bold hover:bg-gray-200 transition-colors text-sm sm:text-base"
                     >
