@@ -188,57 +188,47 @@ const MainApp = ({ onLogout }) => {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass p-6 rounded-[2.5rem] border-lavender-100"
+            className="glass px-4 py-3 rounded-[2rem] border-lavender-100"
           >
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
-                  <Users className="w-3.5 h-3.5" />
-                  Especialista Responsável
-                </div>
-                <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
-                  Toque para mudar
-                </div>
-              </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em] mr-1">
+                <Users className="w-3 h-3 inline mr-1 mb-0.5" />
+                Filtrar
+              </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  onClick={() => setSelectedProfessionalId(null)}
-                  className={`w-full text-left rounded-[2rem] border p-4 transition-all flex items-center gap-4 ${selectedProfessionalId === null ? 'border-lavender-600 bg-lavender-50 shadow-xl' : 'border-gray-100 bg-white hover:border-lavender-200 hover:bg-gray-50'}`}
-                >
-                  <div className={`flex h-14 w-14 items-center justify-center rounded-3xl text-lg font-black ${selectedProfessionalId === null ? 'bg-lavender-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                    <Users className="w-6 h-6" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-bold text-gray-900">Todos</p>
-                    <p className={`text-sm uppercase tracking-[0.14em] ${selectedProfessionalId === null ? 'text-lavender-600' : 'text-gray-400'}`}>
-                      {selectedProfessionalId === null ? 'Selecionado' : 'Clique para escolher'}
-                    </p>
-                  </div>
-                </button>
-                {professionals.map((p) => {
-                  const initials = p.nome.split(' ').slice(0, 2).map((part) => part[0]).join('');
-                  const isSelected = selectedProfessionalId === p.id;
+              {/* Todos */}
+              <button
+                onClick={() => setSelectedProfessionalId(null)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border transition-all text-xs font-bold ${
+                  selectedProfessionalId === null
+                    ? 'border-lavender-500 bg-lavender-600 text-white shadow-md shadow-lavender-200'
+                    : 'border-gray-100 bg-white text-gray-500 hover:border-lavender-200'
+                }`}
+              >
+                <Users className="w-3 h-3 flex-shrink-0" />
+                Todos
+              </button>
 
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => setSelectedProfessionalId(p.id)}
-                      className={`w-full text-left rounded-[2rem] border p-4 transition-all flex items-center gap-4 ${isSelected ? 'border-lavender-600 bg-lavender-50 shadow-xl' : 'border-gray-100 bg-white hover:border-lavender-200 hover:bg-gray-50'}`}
-                    >
-                      <div className={`flex h-14 w-14 items-center justify-center rounded-3xl text-lg font-black ${isSelected ? 'bg-lavender-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                        {initials}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-bold text-gray-900">{p.nome}</p>
-                        <p className={`text-sm uppercase tracking-[0.14em] ${isSelected ? 'text-lavender-600' : 'text-gray-400'}`}>
-                          {isSelected ? 'Selecionado' : 'Clique para escolher'}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              {professionals.map((p) => {
+                const initials = p.nome.split(' ').slice(0, 2).map((part) => part[0]).join('');
+                const isSelected = selectedProfessionalId === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedProfessionalId(p.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border transition-all text-xs font-bold ${
+                      isSelected
+                        ? 'border-lavender-500 bg-lavender-600 text-white shadow-md shadow-lavender-200'
+                        : 'border-gray-100 bg-white text-gray-500 hover:border-lavender-200'
+                    }`}
+                  >
+                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0 ${isSelected ? 'bg-white/20' : 'bg-gray-100'}`}>
+                      {initials}
+                    </span>
+                    {p.nome.split(' ')[0]}
+                  </button>
+                );
+              })}
             </div>
           </motion.div>
         )}

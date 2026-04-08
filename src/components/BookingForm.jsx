@@ -15,7 +15,7 @@ import { formatBRL } from '../lib/money';
 const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialData = null }) => {
   const needsProfessionalStep = !professionalId && !initialData;
 
-  const [step, setStep] = useState(initialData ? 2 : 1);
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [availableSlots, setAvailableSlots] = useState([]);
