@@ -100,27 +100,30 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
   }, [isEditing, initialData?.id, initialData?.servico_id, initialData?.valor_cobrado]);
 
   // ---------------------------------------------------------------------------
-  // Busca horários ocupados no banco e gera slots disponíveis
+  // Busca horários ocupados **por profissional** e gera slots disponíveis.
+  // Regra: o mesmo instante pode ter uma cliente por funcionária; a mesma
+  // funcionária não pode ter dois agendamentos no mesmo horário.
   // ---------------------------------------------------------------------------
   useEffect(() => {
     const fetchSlots = async () => {
       if (!selectedDate || !formData.profissional_id) return;
       setSlotsLoading(true);
+      setAvailableSlots([]);
 
       const start = startOfDay(selectedDate);
       const end = endOfDay(selectedDate);
 
       const { data, error } = await supabase
         .from('agendamentos')
-        .select('data_hora')
+        .select('id, data_hora')
         .eq('profissional_id', formData.profissional_id)
         .gte('data_hora', start.toISOString())
         .lte('data_hora', end.toISOString());
 
-      // Se editando, exclui o slot atual da lista de ocupados
+      // Ao editar, remove só o próprio registro dos ocupados (por id)
       const occupied = (data || [])
-        .filter(d => !isEditing || d.data_hora !== initialData.data_hora)
-        .map(d => parseISO(d.data_hora).getTime());
+        .filter((d) => !isEditing || d.id !== initialData?.id)
+        .map((d) => parseISO(d.data_hora).getTime());
 
       const slots = [];
       let current = new Date(selectedDate);
@@ -141,7 +144,18 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
     };
 
     fetchSlots();
-  }, [selectedDate, formData.profissional_id]);
+  }, [selectedDate, formData.profissional_id, isEditing, initialData?.id]);
+
+  // Ao trocar a profissional na edição, o horário escolhido pode passar a ser inválido
+  useEffect(() => {
+    if (!formData.data_hora || slotsLoading) return;
+    const t = parseISO(formData.data_hora).getTime();
+    const stillAvailable = availableSlots.some((s) => s.getTime() === t);
+    if (!stillAvailable) {
+      setFormData((f) => ({ ...f, data_hora: '' }));
+      if (step === 3) setStep(2);
+    }
+  }, [availableSlots, formData.data_hora, slotsLoading, step]);
 
   // ---------------------------------------------------------------------------
   // Máscara de WhatsApp: (XX) XXXXX-XXXX
@@ -318,20 +332,24 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
-          {availableSlots.map(slot => (
+          {availableSlots.map(slot => {
+            const selectedMs = formData.data_hora ? parseISO(formData.data_hora).getTime() : null;
+            const isSlotSelected = selectedMs !== null && slot.getTime() === selectedMs;
+            return (
             <button
               key={slot.toISOString()}
               onClick={() => { setFormData(f => ({ ...f, data_hora: slot.toISOString() })); setStep(3); }}
               className={`
                 py-3 sm:py-4 rounded-lg sm:rounded-2xl font-black text-xs sm:text-sm transition-all
-                ${formData.data_hora === slot.toISOString()
+                ${isSlotSelected
                   ? 'bg-lavender-600 text-white shadow-xl shadow-lavender-200'
                   : 'bg-gray-50 text-gray-500 hover:bg-lavender-50'}
               `}
             >
               {format(slot, 'HH:mm')}
             </button>
-          ))}
+          );
+          })}
         </div>
       )}
     </Motion.div>

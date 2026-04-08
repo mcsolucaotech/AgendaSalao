@@ -3,7 +3,9 @@ import {
   format,
   startOfDay,
   endOfDay,
-  parseISO
+  parseISO,
+  addDays,
+  isSameDay
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Plus, Scissors, Loader2, Calendar as CalendarIcon, Clock } from 'lucide-react';
@@ -14,6 +16,7 @@ import { motion as Motion, AnimatePresence } from 'framer-motion';
 const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
   const [dayAppointments, setDayAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
+  const todayLabel = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR });
 
   useEffect(() => {
     const fetchDayAppointments = async () => {
@@ -21,15 +24,17 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
       
       setLoading(true);
       try {
-        const start = startOfDay(selectedDate);
-        const end = endOfDay(selectedDate);
+        // Janela expandida para evitar perda por conversão de fuso horário.
+        // Depois filtramos em memória pelo mesmo dia local selecionado.
+        const queryStart = startOfDay(addDays(selectedDate, -1));
+        const queryEnd = endOfDay(addDays(selectedDate, 1));
 
         const { data, error } = await supabase
           .from('agendamentos')
           .select('*')
           .eq('profissional_id', professionalId)
-          .gte('data_hora', start.toISOString())
-          .lte('data_hora', end.toISOString())
+          .gte('data_hora', queryStart.toISOString())
+          .lte('data_hora', queryEnd.toISOString())
           .order('data_hora', { ascending: true });
 
         if (error) {
@@ -38,7 +43,15 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
           setLoading(false);
           return;
         }
-        setDayAppointments(data || []);
+        const sameDayAppointments = (data || []).filter((appointment) => {
+          try {
+            return isSameDay(parseISO(appointment.data_hora), selectedDate);
+          } catch {
+            return false;
+          }
+        });
+
+        setDayAppointments(sameDayAppointments);
       } finally {
         setLoading(false);
       }
@@ -56,9 +69,12 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 md:space-y-8 pb-20 sm:pb-24 md:pb-32 pt-2 sm:pt-4 px-2 sm:px-4 md:px-0">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8 pb-36 sm:pb-40 pt-2 sm:pt-4 px-2 sm:px-4 md:px-0">
       <div className="flex flex-col gap-1">
         <span className="text-gray-400 text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-50">Programação do Dia</span>
+        <span className="text-gray-400 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider opacity-70">
+          Hoje: {todayLabel}
+        </span>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <h3 className="text-base sm:text-lg md:text-xl font-black text-gray-900 font-display capitalize break-words">
             {format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
@@ -123,7 +139,10 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => onAddBooking()}
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 md:bottom-8 md:right-8 z-40 bg-gray-900 text-white p-3 sm:p-4 md:p-5 rounded-lg sm:rounded-xl md:rounded-[2rem] shadow-2xl flex items-center gap-2 md:gap-3 active:bg-lavender-700 transition-all border border-white/10 group overflow-hidden"
+        type="button"
+        aria-label="Novo agendamento"
+        className="fixed right-4 sm:right-6 md:right-8 z-[60] bg-gray-900 text-white p-3.5 sm:p-4 md:p-5 rounded-2xl sm:rounded-[2rem] shadow-2xl flex items-center gap-2 md:gap-3 active:bg-lavender-700 transition-all border border-white/10 group overflow-hidden
+          bottom-[calc(6.75rem+env(safe-area-inset-bottom,0px))]"
       >
         <div className="absolute inset-0 bg-gradient-to-br from-lavender-400 to-lavender-700 opacity-0 group-hover:opacity-100 transition-opacity" />
         <Plus className="w-5 sm:w-6 md:w-6 h-5 sm:h-6 md:h-6 relative z-10 flex-shrink-0" />

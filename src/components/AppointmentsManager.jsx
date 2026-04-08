@@ -11,16 +11,29 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const AppointmentsManager = ({ onEdit }) => {
   const [appointments, setAppointments] = useState([]);
+  const [professionals, setProfessionals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('upcoming'); // 'upcoming' | 'all'
+  const [professionalIdFilter, setProfessionalIdFilter] = useState(''); // '' = todas
   const [deletingId, setDeletingId] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
+    const loadProfessionals = async () => {
+      const { data, error: err } = await supabase
+        .from('profissionais')
+        .select('id, nome')
+        .order('nome');
+      if (!err && data) setProfessionals(data);
+    };
+    loadProfessionals();
+  }, []);
+
+  useEffect(() => {
     fetchAppointments();
-  }, [filter]);
+  }, [filter, professionalIdFilter]);
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -44,6 +57,10 @@ const AppointmentsManager = ({ onEdit }) => {
 
     if (filter === 'upcoming') {
       query = query.gte('data_hora', startOfToday().toISOString());
+    }
+
+    if (professionalIdFilter) {
+      query = query.eq('profissional_id', professionalIdFilter);
     }
 
     const { data, error: err } = await query;
@@ -77,10 +94,16 @@ const AppointmentsManager = ({ onEdit }) => {
     setDeleteLoading(false);
   };
 
-  const filtered = appointments.filter(a =>
-    a.cliente_nome.toLowerCase().includes(search.toLowerCase()) ||
-    a.servico.toLowerCase().includes(search.toLowerCase())
-  );
+  const searchLower = search.trim().toLowerCase();
+  const filtered = appointments.filter((a) => {
+    const profNome = (a.profissionais?.nome || '').toLowerCase();
+    const matchesSearch =
+      !searchLower ||
+      a.cliente_nome.toLowerCase().includes(searchLower) ||
+      a.servico.toLowerCase().includes(searchLower) ||
+      profNome.includes(searchLower);
+    return matchesSearch;
+  });
 
   // ---- Status badge color ----
   const statusColor = {
@@ -98,25 +121,56 @@ const AppointmentsManager = ({ onEdit }) => {
           <Search className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 w-4 sm:w-5 h-4 sm:h-5 text-gray-400 group-focus-within:text-lavender-500 transition-colors flex-shrink-0" />
           <input
             type="text"
-            placeholder="Buscar por cliente ou serviço..."
+            placeholder="Buscar por cliente, serviço ou funcionária..."
             className="w-full pl-11 sm:pl-14 pr-4 sm:pr-6 py-3 sm:py-4 md:py-5 glass rounded-lg sm:rounded-2xl border-lavender-100 focus:ring-2 focus:ring-lavender-500 outline-none font-bold text-gray-900 transition-all shadow-sm text-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-2">
-          {['upcoming', 'all'].map(f => (
+        <div className="space-y-2">
+          <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 px-1">Período</p>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            {['upcoming', 'all'].map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-2xl font-black text-[9px] sm:text-[10px] uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0
+                  ${filter === f ? 'bg-gray-900 text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}
+                `}
+              >
+                {f === 'upcoming' ? 'Próximos' : 'Todos'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 px-1">Funcionária</p>
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-1 px-1">
             <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-2xl font-black text-[9px] sm:text-[10px] uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0
-                ${filter === f ? 'bg-gray-900 text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}
+              type="button"
+              onClick={() => setProfessionalIdFilter('')}
+              className={`px-4 sm:px-5 py-2 sm:py-3 rounded-lg sm:rounded-2xl font-black text-[9px] sm:text-[10px] uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0
+                ${professionalIdFilter === '' ? 'bg-lavender-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}
               `}
             >
-              {f === 'upcoming' ? 'Próximos' : 'Todos'}
+              Todas
             </button>
-          ))}
+            {professionals.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setProfessionalIdFilter(p.id)}
+                className={`px-4 sm:px-5 py-2 sm:py-3 rounded-lg sm:rounded-2xl font-bold text-[10px] sm:text-xs transition-all whitespace-nowrap flex-shrink-0 max-w-[200px] truncate
+                  ${professionalIdFilter === p.id ? 'bg-gray-900 text-white shadow-lg' : 'bg-white text-gray-500 border border-gray-100'}
+                `}
+                title={p.nome}
+              >
+                {p.nome}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -162,7 +216,7 @@ const AppointmentsManager = ({ onEdit }) => {
                         <Scissors className="w-3 h-3 text-lavender-400 flex-shrink-0" />
                         <span className="truncate">{a.servico}</span>
                       </div>
-                      <div className="w-1 h-1 bg-gray-200 rounded-full display: hidden sm:block" />
+                      <div className="w-1 h-1 bg-gray-200 rounded-full hidden sm:block" />
                       <div className="flex items-center gap-1">
                         <User className="w-3 h-3 text-lavender-400 flex-shrink-0" />
                         <span className="truncate">{a.profissionais?.nome || '—'}</span>
