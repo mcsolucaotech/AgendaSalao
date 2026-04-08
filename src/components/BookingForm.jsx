@@ -13,7 +13,9 @@ import { formatBRL } from '../lib/money';
 // BookingForm — wizard de 3 passos para criar ou editar um agendamento
 // ---------------------------------------------------------------------------
 const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialData = null }) => {
-  const [step, setStep] = useState(1);
+  const needsProfessionalStep = !professionalId && !initialData;
+
+  const [step, setStep] = useState(initialData ? 2 : 1);
   const [loading, setLoading] = useState(false);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [availableSlots, setAvailableSlots] = useState([]);
@@ -131,8 +133,12 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
       const dayEnd = new Date(selectedDate);
       dayEnd.setHours(19, 0, 0, 0);
 
+      const now = new Date();
+      const isToday = current.toDateString() === now.toDateString();
+
       while (current <= dayEnd) {
-        if (!occupied.includes(current.getTime())) {
+        const isPast = isToday && current <= now;
+        if (!occupied.includes(current.getTime()) && !isPast) {
           slots.push(new Date(current));
         }
         current = addMinutes(current, 30);
@@ -153,7 +159,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
     const stillAvailable = availableSlots.some((s) => s.getTime() === t);
     if (!stillAvailable) {
       setFormData((f) => ({ ...f, data_hora: '' }));
-      if (step === 3) setStep(2);
+      if (step === (needsProfessionalStep ? 4 : 3)) setStep(needsProfessionalStep ? 3 : 2);
     }
   }, [availableSlots, formData.data_hora, slotsLoading, step]);
 
@@ -292,7 +298,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
               }));
               setPrecoModo('padrao');
               setValorPersonalizado(Number(s.preco).toFixed(2));
-              setStep(2);
+              setStep(needsProfessionalStep ? 3 : 2);
             }}
             className={`
               w-full p-3 sm:p-4 rounded-lg sm:rounded-2xl md:rounded-3xl border-2 transition-all flex items-center justify-between group
@@ -335,20 +341,28 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
           {availableSlots.map(slot => {
             const selectedMs = formData.data_hora ? parseISO(formData.data_hora).getTime() : null;
             const isSlotSelected = selectedMs !== null && slot.getTime() === selectedMs;
+            const isCurrentSlot = isEditing && initialData?.data_hora
+              && slot.getTime() === parseISO(initialData.data_hora).getTime();
             return (
-            <button
-              key={slot.toISOString()}
-              onClick={() => { setFormData(f => ({ ...f, data_hora: slot.toISOString() })); setStep(3); }}
-              className={`
-                py-3 sm:py-4 rounded-lg sm:rounded-2xl font-black text-xs sm:text-sm transition-all
-                ${isSlotSelected
-                  ? 'bg-lavender-600 text-white shadow-xl shadow-lavender-200'
-                  : 'bg-gray-50 text-gray-500 hover:bg-lavender-50'}
-              `}
-            >
-              {format(slot, 'HH:mm')}
-            </button>
-          );
+              <button
+                key={slot.toISOString()}
+                ref={isSlotSelected ? (el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) : null}
+                onClick={() => { setFormData(f => ({ ...f, data_hora: slot.toISOString() })); setStep(needsProfessionalStep ? 4 : 3); }}
+                className={`
+                  relative py-3 sm:py-4 rounded-lg sm:rounded-2xl font-black text-xs sm:text-sm transition-all
+                  ${isSlotSelected
+                    ? 'bg-lavender-600 text-white shadow-xl shadow-lavender-200 ring-2 ring-lavender-400 ring-offset-1'
+                    : 'bg-gray-50 text-gray-500 hover:bg-lavender-50'}
+                `}
+              >
+                {format(slot, 'HH:mm')}
+                {isCurrentSlot && !isSlotSelected && (
+                  <span className="absolute -top-1.5 -right-1.5 text-[8px] font-black bg-lavender-100 text-lavender-600 px-1 py-0.5 rounded-full leading-none">
+                    atual
+                  </span>
+                )}
+              </button>
+            );
           })}
         </div>
       )}
@@ -451,7 +465,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
           </div>
         )}
 
-        {/* Seletor de Profissional (apenas ao editar) */}
+        {/* Seletor de Profissional — apenas ao editar */}
         {isEditing && !professionalsLoading && professionals.length > 0 && (
           <div>
             <label className="text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2 block">
@@ -472,6 +486,9 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
                 </button>
               ))}
             </div>
+            {!isEditing && !formData.profissional_id && (
+              <p className="text-[10px] text-red-400 font-bold mt-1.5">Selecione uma profissional para continuar</p>
+            )}
           </div>
         )}
       </div>
@@ -531,7 +548,42 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
     );
   };
 
-  const stepTitles = ['Qual serviço?', 'Escolha o horário', 'Dados da cliente'];
+  const stepTitles = needsProfessionalStep
+    ? ['Quem vai atender?', 'Qual serviço?', 'Escolha o horário', 'Dados da cliente']
+    : ['Qual serviço?', 'Escolha o horário', 'Dados da cliente'];
+
+  const totalSteps = stepTitles.length;
+
+  const renderStep0 = () => (
+    <Motion.div key="s0" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="space-y-2 sm:space-y-3">
+      {professionalsLoading ? (
+        <div className="flex justify-center py-8 sm:py-12">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 border-4 border-lavender-200 border-t-lavender-600 rounded-full animate-spin" />
+        </div>
+      ) : (
+        professionals.map((prof) => (
+          <button
+            key={prof.id}
+            onClick={() => {
+              setFormData(f => ({ ...f, profissional_id: prof.id }));
+              setStep(2);
+            }}
+            className={`
+              w-full p-3 sm:p-4 rounded-lg sm:rounded-2xl border-2 transition-all flex items-center gap-4
+              ${formData.profissional_id === prof.id
+                ? 'border-lavender-600 bg-lavender-50'
+                : 'border-gray-100 bg-white hover:border-lavender-200'}
+            `}
+          >
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black flex-shrink-0 ${formData.profissional_id === prof.id ? 'bg-lavender-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+              {prof.nome.split(' ').slice(0, 2).map(p => p[0]).join('')}
+            </div>
+            <span className="font-bold text-gray-900 text-sm">{prof.nome}</span>
+          </button>
+        ))
+      )}
+    </Motion.div>
+  );
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-gray-900/40 backdrop-blur-md">
@@ -568,7 +620,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
                   {isEditing ? 'Editar Agendamento' : stepTitles[step - 1]}
                 </h2>
                 <p className="text-lavender-400 text-[8px] sm:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] mt-0.5">
-                  Passo {step} de 3
+                  Passo {step} de {totalSteps}
                 </p>
               </div>
             </div>
@@ -579,9 +631,10 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
 
           {/* Conteúdo do step */}
           <AnimatePresence mode="wait">
-            {step === 1 && renderStep1()}
-            {step === 2 && renderStep2()}
-            {step === 3 && renderStep3()}
+            {step === 1 && needsProfessionalStep && renderStep0()}
+            {step === (needsProfessionalStep ? 2 : 1) && renderStep1()}
+            {step === (needsProfessionalStep ? 3 : 2) && renderStep2()}
+            {step === (needsProfessionalStep ? 4 : 3) && renderStep3()}
           </AnimatePresence>
         </div>
       </Motion.div>

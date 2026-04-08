@@ -8,12 +8,12 @@ import {
   isSameDay
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Plus, Scissors, Loader2, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { Plus, Scissors, Loader2, Calendar as CalendarIcon, Clock, Edit2, User } from 'lucide-react';
 import { formatBRL } from '../lib/money';
 import { supabase } from '../lib/supabase';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 
-const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
+const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onEdit }) => {
   const [dayAppointments, setDayAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
   const todayLabel = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR });
@@ -29,7 +29,7 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
 
         let query = supabase
           .from('agendamentos')
-          .select('*')
+          .select('*, profissionais(nome)')
           .gte('data_hora', queryStart.toISOString())
           .lte('data_hora', queryEnd.toISOString())
           .order('data_hora', { ascending: true });
@@ -107,31 +107,48 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
-                whileHover={{ scale: 1.02 }}
-                className="glass rounded-lg sm:rounded-xl md:rounded-3xl p-3 sm:p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between border-lavender-100 group gap-3"
+                className="glass rounded-lg sm:rounded-xl md:rounded-3xl p-3 sm:p-4 md:p-5 flex items-center border-lavender-100 group gap-3"
               >
-                <div className="flex items-center gap-3 sm:gap-5 flex-1 min-w-0">
-                  <div className="flex flex-col items-center justify-center bg-gray-50 rounded-lg sm:rounded-2xl w-12 h-12 sm:w-16 sm:h-16 group-hover:bg-lavender-600 group-hover:text-white transition-colors flex-shrink-0">
-                    <span className="text-[8px] sm:text-xs font-black uppercase opacity-40 group-hover:text-white/50">Início</span>
-                    <span className="text-base sm:text-lg font-black font-display tracking-tight">
-                      {format(parseISO(appointment.data_hora), 'HH:mm')}
-                    </span>
-                  </div>
-                  <div className="border-l border-gray-100 pl-3 sm:pl-5 space-y-1 flex-1 min-w-0">
-                    <div className="flex items-center gap-2 text-gray-900 font-black font-display text-sm sm:text-base md:text-lg truncate">
-                      {appointment.cliente_nome}
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-400 text-[8px] sm:text-[10px] font-black uppercase tracking-widest truncate">
-                      <Scissors className="w-3 h-3 text-lavender-400 flex-shrink-0" />
-                      <span className="truncate">{appointment.servico}</span>
-                    </div>
-                    {appointment.valor_cobrado != null && (
-                      <div className="text-[10px] sm:text-xs font-black text-lavender-700 pt-0.5">
-                        {formatBRL(appointment.valor_cobrado)}
-                      </div>
-                    )}
-                  </div>
+                {/* horário */}
+                <div className="flex flex-col items-center justify-center bg-gray-50 rounded-lg sm:rounded-2xl w-12 h-12 sm:w-16 sm:h-16 group-hover:bg-lavender-600 group-hover:text-white transition-colors flex-shrink-0">
+                  <span className="text-[8px] sm:text-xs font-black uppercase opacity-40 group-hover:text-white/50">Início</span>
+                  <span className="text-base sm:text-lg font-black font-display tracking-tight">
+                    {format(parseISO(appointment.data_hora), 'HH:mm')}
+                  </span>
                 </div>
+
+                {/* info */}
+                <div className="border-l border-gray-100 pl-3 sm:pl-5 space-y-1 flex-1 min-w-0">
+                  <div className="text-gray-900 font-black font-display text-sm sm:text-base md:text-lg truncate">
+                    {appointment.cliente_nome}
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-400 text-[8px] sm:text-[10px] font-black uppercase tracking-widest truncate">
+                    <Scissors className="w-3 h-3 text-lavender-400 flex-shrink-0" />
+                    <span className="truncate">{appointment.servico}</span>
+                  </div>
+                  {appointment.profissionais?.nome && (
+                    <div className="flex items-center gap-1.5 text-[8px] sm:text-[10px] font-bold text-gray-400 truncate">
+                      <User className="w-3 h-3 text-lavender-300 flex-shrink-0" />
+                      <span className="truncate">{appointment.profissionais.nome}</span>
+                    </div>
+                  )}
+                  {appointment.valor_cobrado != null && (
+                    <div className="text-[10px] sm:text-xs font-black text-lavender-700 pt-0.5">
+                      {formatBRL(appointment.valor_cobrado)}
+                    </div>
+                  )}
+                </div>
+
+                {/* botão editar */}
+                {onEdit && (
+                  <button
+                    onClick={() => onEdit(appointment)}
+                    className="flex-shrink-0 w-9 h-9 rounded-xl bg-gray-100 hover:bg-lavender-600 hover:text-white text-gray-400 flex items-center justify-center transition-all active:scale-90"
+                    aria-label="Editar agendamento"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                )}
               </Motion.div>
             ))
           )}

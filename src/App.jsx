@@ -90,7 +90,6 @@ const MainApp = ({ onLogout }) => {
       }
 
       setProfessionals(data);
-      setSelectedProfessionalId(data[0].id);
       setLoading(false);
     };
 
@@ -264,13 +263,11 @@ const MainApp = ({ onLogout }) => {
               <TimeSlotList
                 selectedDate={selectedDate}
                 professionalId={selectedProfessionalId}
-                onAddBooking={() => { 
-                  setEditingAppointment(null); 
-                  if (!selectedProfessionalId && professionals.length > 0) {
-                    setSelectedProfessionalId(professionals[0].id);
-                  }
-                  setShowBookingForm(true); 
+                onAddBooking={() => {
+                  setEditingAppointment(null);
+                  setShowBookingForm(true);
                 }}
+                onEdit={handleEdit}
               />
             </motion.div>
           ) : (
