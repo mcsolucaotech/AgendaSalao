@@ -25,18 +25,23 @@ const CalendarView = ({ selectedDate, onDateSelect, professionalId }) => {
 
   useEffect(() => {
     const fetchAppointments = async () => {
-      if (!professionalId) return;
+      if (!professionalId && professionalId !== null) return;
 
       try {
         const firstDay = startOfMonth(currentMonth);
         const lastDay = endOfMonth(currentMonth);
 
-        const { data, error } = await supabase
+        let query = supabase
           .from('agendamentos')
           .select('data_hora')
-          .eq('profissional_id', professionalId)
           .gte('data_hora', firstDay.toISOString())
           .lte('data_hora', lastDay.toISOString());
+
+        if (professionalId) {
+          query = query.eq('profissional_id', professionalId);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
           console.error('CalendarView: falha ao buscar marcadores:', error.message);

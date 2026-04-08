@@ -52,7 +52,7 @@ const MainApp = ({ onLogout }) => {
   const [view, setView] = useState('calendar');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [professionals, setProfessionals] = useState([]);
-  const [selectedProfessionalId, setSelectedProfessionalId] = useState('');
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState(null);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -203,6 +203,20 @@ const MainApp = ({ onLogout }) => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  onClick={() => setSelectedProfessionalId(null)}
+                  className={`w-full text-left rounded-[2rem] border p-4 transition-all flex items-center gap-4 ${selectedProfessionalId === null ? 'border-lavender-600 bg-lavender-50 shadow-xl' : 'border-gray-100 bg-white hover:border-lavender-200 hover:bg-gray-50'}`}
+                >
+                  <div className={`flex h-14 w-14 items-center justify-center rounded-3xl text-lg font-black ${selectedProfessionalId === null ? 'bg-lavender-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-gray-900">Todos</p>
+                    <p className={`text-sm uppercase tracking-[0.14em] ${selectedProfessionalId === null ? 'text-lavender-600' : 'text-gray-400'}`}>
+                      {selectedProfessionalId === null ? 'Selecionado' : 'Clique para escolher'}
+                    </p>
+                  </div>
+                </button>
                 {professionals.map((p) => {
                   const initials = p.nome.split(' ').slice(0, 2).map((part) => part[0]).join('');
                   const isSelected = selectedProfessionalId === p.id;
@@ -258,7 +272,13 @@ const MainApp = ({ onLogout }) => {
               <TimeSlotList
                 selectedDate={selectedDate}
                 professionalId={selectedProfessionalId}
-                onAddBooking={() => { setEditingAppointment(null); setShowBookingForm(true); }}
+                onAddBooking={() => { 
+                  setEditingAppointment(null); 
+                  if (!selectedProfessionalId && professionals.length > 0) {
+                    setSelectedProfessionalId(professionals[0].id);
+                  }
+                  setShowBookingForm(true); 
+                }}
               />
             </motion.div>
           ) : (

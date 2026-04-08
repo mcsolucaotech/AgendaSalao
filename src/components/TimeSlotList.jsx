@@ -20,22 +20,25 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking }) => {
 
   useEffect(() => {
     const fetchDayAppointments = async () => {
-      if (!selectedDate || !professionalId) return;
+      if (!selectedDate || (!professionalId && professionalId !== null)) return;
       
       setLoading(true);
       try {
-        // Janela expandida para evitar perda por conversão de fuso horário.
-        // Depois filtramos em memória pelo mesmo dia local selecionado.
         const queryStart = startOfDay(addDays(selectedDate, -1));
         const queryEnd = endOfDay(addDays(selectedDate, 1));
 
-        const { data, error } = await supabase
+        let query = supabase
           .from('agendamentos')
           .select('*')
-          .eq('profissional_id', professionalId)
           .gte('data_hora', queryStart.toISOString())
           .lte('data_hora', queryEnd.toISOString())
           .order('data_hora', { ascending: true });
+
+        if (professionalId) {
+          query = query.eq('profissional_id', professionalId);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
           console.error('TimeSlotList: falha ao buscar agenda do dia:', error.message);
