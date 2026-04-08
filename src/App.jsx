@@ -74,7 +74,7 @@ const MainApp = ({ onLogout }) => {
 
       const { data, error: err } = await supabase
         .from('profissionais')
-        .select('id, nome, foto_url')
+        .select('id, nome')
         .order('nome');
 
       if (err) {
@@ -228,15 +228,7 @@ const MainApp = ({ onLogout }) => {
                       className={`w-full text-left rounded-[2rem] border p-4 transition-all flex items-center gap-4 ${isSelected ? 'border-lavender-600 bg-lavender-50 shadow-xl' : 'border-gray-100 bg-white hover:border-lavender-200 hover:bg-gray-50'}`}
                     >
                       <div className={`flex h-14 w-14 items-center justify-center rounded-3xl text-lg font-black ${isSelected ? 'bg-lavender-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                        {p.foto_url ? (
-                          <img
-                            src={p.foto_url}
-                            alt={p.nome}
-                            className="h-14 w-14 rounded-3xl object-cover"
-                          />
-                        ) : (
-                          initials
-                        )}
+                        {initials}
                       </div>
                       <div className="flex-1">
                         <p className="font-bold text-gray-900">{p.nome}</p>

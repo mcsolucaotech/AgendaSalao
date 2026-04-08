@@ -28,9 +28,9 @@ const AdminDashboard = ({ onClose }) => {
 
   const [professionalForm, setProfessionalForm] = useState({
     nome: '',
-    foto_url: ''
+    percentual_salao: ''
   });
-
+  
   // Revenue tracking state
   const [revenueData, setRevenueData] = useState([]);
   const [revenueLoading, setRevenueLoading] = useState(false);
@@ -42,24 +42,24 @@ const AdminDashboard = ({ onClose }) => {
 
   // Load data
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const [servicesRes, professionalsRes] = await Promise.all([
-          supabase.from('servicos').select('*').order('categoria'),
-          supabase.from('profissionais').select('*').order('nome')
-        ]);
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [servicesRes, professionalsRes] = await Promise.all([
+        supabase.from('servicos').select('*').order('categoria'),
+        supabase.from('profissionais').select('*').order('nome')
+      ]);
 
-        if (servicesRes.error) throw servicesRes.error;
-        if (professionalsRes.error) throw professionalsRes.error;
+      if (servicesRes.error) throw servicesRes.error;
+      if (professionalsRes.error) throw professionalsRes.error;
 
-        setServices(servicesRes.data || []);
-        setProfessionals(professionalsRes.data || []);
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-      }
-      setLoading(false);
-    };
+      setServices(servicesRes.data || []);
+      setProfessionals(professionalsRes.data || []);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+    }
+    setLoading(false);
+  };
 
     loadData();
   }, []);
@@ -203,17 +203,19 @@ const AdminDashboard = ({ onClose }) => {
   const handleAddProfessional = async () => {
     if (!professionalForm.nome) return;
 
+    const percentual = professionalForm.percentual_salao !== '' ? parseFloat(professionalForm.percentual_salao) : null;
+
     try {
       const { error } = await supabase
         .from('profissionais')
         .insert([{
           nome: professionalForm.nome,
-          foto_url: professionalForm.foto_url || null
+          percentual_salao: percentual
         }]);
 
       if (error) throw error;
 
-      setProfessionalForm({ nome: '', foto_url: '' });
+      setProfessionalForm({ nome: '', percentual_salao: '' });
       setShowAddProfessional(false);
       loadData();
     } catch (error) {
@@ -224,19 +226,21 @@ const AdminDashboard = ({ onClose }) => {
   const handleEditProfessional = async () => {
     if (!editingProfessional || !professionalForm.nome) return;
 
+    const percentual = professionalForm.percentual_salao !== '' ? parseFloat(professionalForm.percentual_salao) : null;
+
     try {
       const { error } = await supabase
         .from('profissionais')
         .update({
           nome: professionalForm.nome,
-          foto_url: professionalForm.foto_url || null
+          percentual_salao: percentual
         })
         .eq('id', editingProfessional.id);
 
       if (error) throw error;
 
       setEditingProfessional(null);
-      setProfessionalForm({ nome: '', foto_url: '' });
+      setProfessionalForm({ nome: '', percentual_salao: '' });
       loadData();
     } catch (error) {
       console.error('Erro ao editar profissional:', error);
@@ -273,7 +277,7 @@ const AdminDashboard = ({ onClose }) => {
     setEditingProfessional(professional);
     setProfessionalForm({
       nome: professional.nome,
-      foto_url: professional.foto_url || ''
+      percentual_salao: professional.percentual_salao != null ? professional.percentual_salao.toString() : ''
     });
   };
 
@@ -406,9 +410,13 @@ const AdminDashboard = ({ onClose }) => {
                     <div key={professional.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 bg-gray-50 rounded-lg sm:rounded-2xl gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-gray-900 text-sm sm:text-base truncate">{professional.nome}</p>
-                        {professional.foto_url && (
-                          <p className="text-xs sm:text-sm text-gray-500 truncate">Foto: {professional.foto_url}</p>
-                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {professional.percentual_salao != null && (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-lavender-700 bg-lavender-100 px-2 py-0.5 rounded-full">
+                              Salão: {professional.percentual_salao}%
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex gap-2 self-end sm:self-auto">
                         <button
@@ -520,22 +528,41 @@ const AdminDashboard = ({ onClose }) => {
                         }))
                         .filter(p => selectedProfessional ? p.id === selectedProfessional : p.count > 0)
                         .sort((a, b) => b.total - a.total)
-                        .map(p => (
-                          <div key={p.id} className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg sm:rounded-2xl">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-lavender-100 flex items-center justify-center">
-                                <Users className="w-5 h-5 text-lavender-600" />
+                        .map(p => {
+                          const percentual = p.percentual_salao != null ? p.percentual_salao : 0;
+                          const desconto = p.total * (percentual / 100);
+                          const aPagar = p.total - desconto;
+                          return (
+                            <div key={p.id} className="p-3 sm:p-4 bg-gray-50 rounded-lg sm:rounded-2xl space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-xl bg-lavender-100 flex items-center justify-center">
+                                    <Users className="w-5 h-5 text-lavender-600" />
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-gray-900 text-sm">{p.nome}</p>
+                                    <p className="text-xs text-gray-500">{p.count} agendamento{p.count !== 1 ? 's' : ''}</p>
+                                  </div>
+                                </div>
+                                <p className="font-black text-lavender-600 text-sm sm:text-base">
+                                  R$ {p.total.toFixed(2).replace('.', ',')}
+                                </p>
                               </div>
-                              <div>
-                                <p className="font-bold text-gray-900 text-sm">{p.nome}</p>
-                                <p className="text-xs text-gray-500">{p.count} agendamento{p.count !== 1 ? 's' : ''}</p>
-                              </div>
+                              {percentual > 0 && (
+                                <div className="ml-13 pl-1 border-l-2 border-lavender-200 ml-[52px] space-y-1 text-xs">
+                                  <div className="flex justify-between text-gray-500">
+                                    <span>Percentual do salão ({percentual}%)</span>
+                                    <span className="text-red-500 font-bold">- R$ {desconto.toFixed(2).replace('.', ',')}</span>
+                                  </div>
+                                  <div className="flex justify-between font-black text-green-700">
+                                    <span>Total a pagar ao profissional</span>
+                                    <span>R$ {aPagar.toFixed(2).replace('.', ',')}</span>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            <p className="font-black text-lavender-600 text-sm sm:text-base">
-                              R$ {p.total.toFixed(2).replace('.', ',')}
-                            </p>
-                          </div>
-                        ))}
+                          );
+                        })}
                       {revenueData.length === 0 && (
                         <div className="text-center py-8 text-gray-400">
                           <p className="text-sm">Nenhum agendamento no período selecionado</p>
@@ -660,20 +687,27 @@ const AdminDashboard = ({ onClose }) => {
                       onChange={(e) => setProfessionalForm(prev => ({ ...prev, nome: e.target.value }))}
                       className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
                     />
-                    <input
-                      type="url"
-                      placeholder="URL da Foto (opcional)"
-                      value={professionalForm.foto_url}
-                      onChange={(e) => setProfessionalForm(prev => ({ ...prev, foto_url: e.target.value }))}
-                      className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
-                    />
+                    <div>
+                      <label className="block text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Percentual do Salão (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        placeholder="Ex: 25"
+                        value={professionalForm.percentual_salao}
+                        onChange={(e) => setProfessionalForm(prev => ({ ...prev, percentual_salao: e.target.value }))}
+                        className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">Percentual descontado do total arrecadado pelo profissional</p>
+                    </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-6">
                     <button
                       onClick={() => {
                         setShowAddProfessional(false);
                         setEditingProfessional(null);
-                        setProfessionalForm({ nome: '', foto_url: '' });
+                        setProfessionalForm({ nome: '', percentual_salao: '' });
                       }}
                       className="flex-1 py-3 sm:py-4 bg-gray-100 text-gray-600 rounded-lg sm:rounded-2xl font-bold hover:bg-gray-200 transition-colors text-sm sm:text-base"
                     >
