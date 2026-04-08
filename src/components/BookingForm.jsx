@@ -12,8 +12,8 @@ import { formatBRL } from '../lib/money';
 // ---------------------------------------------------------------------------
 // BookingForm — wizard de 3 passos para criar ou editar um agendamento
 // ---------------------------------------------------------------------------
-const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialData = null, isAdmin = false }) => {
-  const needsProfessionalStep = isAdmin && !professionalId && !initialData;
+const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialData = null }) => {
+  const needsProfessionalStep = !professionalId && !initialData;
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -465,8 +465,8 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
           </div>
         )}
 
-        {/* Seletor de Profissional — apenas admin ao editar */}
-        {isAdmin && isEditing && !professionalsLoading && professionals.length > 0 && (
+        {/* Seletor de Profissional — apenas ao editar */}
+        {isEditing && !professionalsLoading && professionals.length > 0 && (
           <div>
             <label className="text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2 block">
               Trocar Profissional

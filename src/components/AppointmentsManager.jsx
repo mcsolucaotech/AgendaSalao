@@ -9,14 +9,14 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const AppointmentsManager = ({ onEdit, isAdmin = false, currentProfessionalId = null }) => {
+const AppointmentsManager = ({ onEdit }) => {
   const [appointments, setAppointments] = useState([]);
   const [professionals, setProfessionals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('upcoming');
-  const [professionalIdFilter, setProfessionalIdFilter] = useState(currentProfessionalId || '');
+  const [filter, setFilter] = useState('upcoming'); // 'upcoming' | 'all'
+  const [professionalIdFilter, setProfessionalIdFilter] = useState(''); // '' = todas
   const [deletingId, setDeletingId] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -145,8 +145,6 @@ const AppointmentsManager = ({ onEdit, isAdmin = false, currentProfessionalId = 
           </div>
         </div>
 
-        {/* Filtro de funcionária — apenas admin */}
-        {isAdmin && (
         <div className="space-y-2">
           <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 px-1">Funcionária</p>
           <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-1 px-1">
@@ -174,7 +172,6 @@ const AppointmentsManager = ({ onEdit, isAdmin = false, currentProfessionalId = 
             ))}
           </div>
         </div>
-        )}
       </div>
 
       {/* Lista */}
