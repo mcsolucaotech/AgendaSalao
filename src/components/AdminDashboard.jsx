@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import {
   Settings, Users, Scissors, Plus, Edit, Trash2,
-  X, Check, AlertCircle, Loader2, DollarSign, Calendar, TrendingUp
+  X, Check, AlertCircle, Loader2, DollarSign, Calendar, TrendingUp, Terminal, Play
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, parseISO, startOfDay, endOfDay, subDays, isAfter, isBefore, isEqual } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import DateRangePicker from './DateRangePicker';
 
 const AdminDashboard = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState('services');
@@ -36,7 +37,7 @@ const AdminDashboard = ({ onClose }) => {
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [selectedProfessional, setSelectedProfessional] = useState(null);
   const [dateRange, setDateRange] = useState({
-    start: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+    start: format(subDays(new Date(), 5), 'yyyy-MM-dd'),
     end: format(new Date(), 'yyyy-MM-dd')
   });
 
@@ -444,37 +445,38 @@ const AdminDashboard = ({ onClose }) => {
                 <h3 className="text-lg sm:text-xl font-black text-gray-900 font-display">Faturamento por Profissional</h3>
                 
                 {/* Filters */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                <div className="space-y-3">
                   <div>
-                    <label className="block text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Data Inicial</label>
-                    <input
-                      type="date"
-                      value={dateRange.start}
-                      onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                      className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm"
-                    />
+                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Período</p>
+                    <DateRangePicker value={dateRange} onChange={setDateRange} />
                   </div>
                   <div>
-                    <label className="block text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Data Final</label>
-                    <input
-                      type="date"
-                      value={dateRange.end}
-                      onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                      className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Profissional</label>
-                    <select
-                      value={selectedProfessional || ''}
-                      onChange={(e) => setSelectedProfessional(e.target.value || null)}
-                      className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm bg-white"
-                    >
-                      <option value="">Todas</option>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Profissional</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setSelectedProfessional(null)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all border-2 ${
+                          selectedProfessional === null
+                            ? 'bg-lavender-600 text-white border-lavender-600 shadow-md shadow-lavender-200'
+                            : 'bg-white text-gray-500 border-gray-200 hover:border-lavender-300'
+                        }`}
+                      >
+                        Todas
+                      </button>
                       {professionals.map((p) => (
-                        <option key={p.id} value={p.id}>{p.nome}</option>
+                        <button
+                          key={p.id}
+                          onClick={() => setSelectedProfessional(p.id === selectedProfessional ? null : p.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all border-2 ${
+                            selectedProfessional === p.id
+                              ? 'bg-lavender-600 text-white border-lavender-600 shadow-md shadow-lavender-200'
+                              : 'bg-white text-gray-500 border-gray-200 hover:border-lavender-300'
+                          }`}
+                        >
+                          {p.nome.split(' ')[0]}
+                        </button>
                       ))}
-                    </select>
+                    </div>
                   </div>
                 </div>
 
