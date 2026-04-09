@@ -1,59 +1,21 @@
-import { useState, useEffect, useMemo } from 'react';
-import { format, startOfDay, endOfDay, parseISO } from 'date-fns';
+import { useMemo } from 'react';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Plus, Scissors, Loader2, Calendar as CalendarIcon, Clock, Edit2, User, Package } from 'lucide-react';
 import { formatBRL } from '../lib/money';
-import { supabase } from '../lib/supabase';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
+import { groupAppointmentsByCombo } from '../lib/appointments';
+import { useDayAppointments } from '../hooks/useDayAppointments';
 
 const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onAddCombo, onEdit }) => {
-  const [dayAppointments, setDayAppointments] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const { dayAppointments, loading } = useDayAppointments({ selectedDate, professionalId });
   const todayLabel = useMemo(
     () => format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR }),
     []
   );
 
-  useEffect(() => {
-    const fetchDayAppointments = async () => {
-      if (!selectedDate || (!professionalId && professionalId !== null)) return;
-      setLoading(true);
-      try {
-        const queryStart = startOfDay(selectedDate);
-        const queryEnd = endOfDay(selectedDate);
-        let query = supabase
-          .from('agendamentos')
-          .select('*, profissionais(nome)')
-          .gte('data_hora', queryStart.toISOString())
-          .lte('data_hora', queryEnd.toISOString())
-          .order('data_hora', { ascending: true });
-        if (professionalId) query = query.eq('profissional_id', professionalId);
-        const { data, error } = await query;
-        if (error) { setDayAppointments([]); setLoading(false); return; }
-        setDayAppointments(data || []);
-      } finally { setLoading(false); }
-    };
-    fetchDayAppointments();
-  }, [selectedDate, professionalId]);
-
   // Agrupa combos pelo combo_id sem custo quadrático
-  const grouped = useMemo(() => {
-    const byCombo = new Map();
-    const result = [];
-    for (const a of dayAppointments) {
-      if (a.combo_id) {
-        if (!byCombo.has(a.combo_id)) {
-          const group = { type: 'combo', id: a.combo_id, items: [] };
-          byCombo.set(a.combo_id, group);
-          result.push(group);
-        }
-        byCombo.get(a.combo_id).items.push(a);
-      } else {
-        result.push({ type: 'single', id: a.id, item: a });
-      }
-    }
-    return result;
-  }, [dayAppointments]);
+  const grouped = useMemo(() => groupAppointmentsByCombo(dayAppointments), [dayAppointments]);
 
   if (loading) return (
     <div className="flex items-center justify-center py-8">

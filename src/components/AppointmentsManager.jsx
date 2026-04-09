@@ -1,96 +1,40 @@
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import React, { useDeferredValue, useMemo, useState } from 'react';
 import { formatBRL } from '../lib/money';
-import { format, parseISO, startOfToday } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Search, Edit2, Trash2, User,
   Scissors, AlertCircle, Loader2, Package
 } from 'lucide-react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
+import { filterAppointmentsBySearch, groupAppointmentsByCombo } from '../lib/appointments';
+import { useManagedAppointments } from '../hooks/useManagedAppointments';
 
 const AppointmentsManager = ({ onEdit }) => {
-  const [appointments, setAppointments] = useState([]);
-  const [professionals, setProfessionals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('upcoming'); // 'upcoming' | 'all'
   const [professionalIdFilter, setProfessionalIdFilter] = useState(''); // '' = todas
   const [deletingId, setDeletingId] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const deferredSearch = useDeferredValue(search);
-
-  useEffect(() => {
-    const loadProfessionals = async () => {
-      const { data, error: err } = await supabase
-        .from('profissionais')
-        .select('id, nome')
-        .order('nome');
-      if (!err && data) setProfessionals(data);
-    };
-    loadProfessionals();
-  }, []);
-
-  const fetchAppointments = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    let query = supabase
-      .from('agendamentos')
-      .select(`
-        id,
-        data_hora,
-        cliente_nome,
-        cliente_telefone,
-        servico,
-        observacoes,
-        status,
-        profissional_id,
-        valor_cobrado,
-        combo_id,
-        profissionais ( nome )
-      `)
-      .order('data_hora', { ascending: true });
-
-    if (filter === 'upcoming') {
-      query = query.gte('data_hora', startOfToday().toISOString());
-    }
-
-    if (professionalIdFilter) {
-      query = query.eq('profissional_id', professionalIdFilter);
-    }
-
-    const { data, error: err } = await query;
-
-    if (err) {
-      setError('Não foi possível carregar os agendamentos.');
-      setLoading(false);
-      return;
-    }
-
-    setAppointments(data || []);
-    setLoading(false);
-  }, [filter, professionalIdFilter]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- atualização de estado ocorre dentro da função assíncrona de busca
-    fetchAppointments();
-  }, [fetchAppointments]);
+  const {
+    appointments,
+    professionals,
+    loading,
+    error,
+    refreshAppointments,
+    removeAppointment,
+    removeCombo,
+  } = useManagedAppointments({ filter, professionalIdFilter });
 
   const handleDelete = async (id) => {
     setDeleteLoading(true);
 
-    const { error: err } = await supabase
-      .from('agendamentos')
-      .delete()
-      .eq('id', id);
+    const { error: err } = await removeAppointment(id);
 
     if (err) {
       // Exibe o erro brevemente e fecha o overlay
       console.error('Erro ao excluir:', err.message);
-    } else {
-      setAppointments(prev => prev.filter(a => a.id !== id));
     }
 
     setDeletingId(null);
@@ -98,33 +42,15 @@ const AppointmentsManager = ({ onEdit }) => {
   };
 
   const searchLower = deferredSearch.trim().toLowerCase();
-  const filtered = useMemo(() => {
-    return appointments.filter((a) => {
-      const profNome = (a.profissionais?.nome || '').toLowerCase();
-      const cliente = (a.cliente_nome || '').toLowerCase();
-      const servico = (a.servico || '').toLowerCase();
-      return !searchLower || cliente.includes(searchLower) || servico.includes(searchLower) || profNome.includes(searchLower);
-    });
-  }, [appointments, searchLower]);
+  const filtered = useMemo(
+    () => filterAppointmentsBySearch(appointments, searchLower),
+    [appointments, searchLower]
+  );
 
-  // Agrupa combos pelo combo_id sem reprocessamento quadrático
-  const grouped = useMemo(() => {
-    const byCombo = new Map();
-    const result = [];
-    for (const a of filtered) {
-      if (a.combo_id) {
-        if (!byCombo.has(a.combo_id)) {
-          const group = { type: 'combo', id: a.combo_id, items: [] };
-          byCombo.set(a.combo_id, group);
-          result.push(group);
-        }
-        byCombo.get(a.combo_id).items.push(a);
-      } else {
-        result.push({ type: 'single', id: a.id, item: a });
-      }
-    }
-    return result;
-  }, [filtered]);
+  const grouped = useMemo(
+    () => groupAppointmentsByCombo(filtered),
+    [filtered]
+  );
 
   // ---- Status badge color ----
   const statusColor = {
@@ -207,7 +133,7 @@ const AppointmentsManager = ({ onEdit }) => {
             <AlertCircle className="w-10 sm:w-12 h-10 sm:h-12 text-red-300 mx-auto mb-3 sm:mb-4" />
             <p className="font-bold text-gray-400 text-sm">{error}</p>
             <button
-              onClick={fetchAppointments}
+              onClick={refreshAppointments}
               className="mt-3 sm:mt-4 text-xs text-lavender-500 font-bold underline"
             >
               Tentar novamente
@@ -370,10 +296,7 @@ const AppointmentsManager = ({ onEdit }) => {
                             <button
                               onClick={async () => {
                                 setDeleteLoading(true);
-                                const { error: deleteError } = await supabase.from('agendamentos').delete().eq('combo_id', group.id);
-                                if (!deleteError) {
-                                  setAppointments(prev => prev.filter(a => a.combo_id !== group.id));
-                                }
+                                await removeCombo(group.id);
                                 setDeletingId(null);
                                 setDeleteLoading(false);
                               }}

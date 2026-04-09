@@ -9,6 +9,11 @@ import { format, parseISO, startOfDay, endOfDay, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DateRangePicker from './DateRangePicker';
 import {
+  calculateRevenueByProfessional,
+  calculateRevenueSummary,
+  generateProfessionalEmail,
+} from '../lib/admin';
+import {
   clampPercentage,
   isValidIsoDate,
   parseCurrencyInput,
@@ -222,7 +227,7 @@ const AdminDashboard = ({ onClose }) => {
       return;
     }
 
-    const emailGerado = generateEmail(nome);
+    const emailGerado = generateProfessionalEmail(nome);
     if (!emailGerado) {
       setProfessionalError('Nome inválido para gerar login.');
       return;
@@ -308,34 +313,12 @@ const AdminDashboard = ({ onClose }) => {
     }
   };
 
-  // Gera email a partir do nome: "Maria Silva" → "maria.silva@salao.com"
-  const generateEmail = (nome) => {
-    const username = sanitizeText(nome, MAX_NAME_LENGTH)
-      .toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/\s+/g, '.')
-      .replace(/[^a-z0-9.]/g, '')
-      .replace(/\.{2,}/g, '.')
-      .replace(/^\.+|\.+$/g, '');
-    return username ? `${username}@salao.com` : '';
-  };
-
   const revenueSummary = useMemo(() => {
-    const total = revenueData.reduce((sum, a) => sum + (Number(a.valor_cobrado) || 0), 0);
-    const count = revenueData.length;
-    const average = count > 0 ? total / count : 0;
-    return { total, count, average };
+    return calculateRevenueSummary(revenueData);
   }, [revenueData]);
 
   const revenueByProfessional = useMemo(() => {
-    return professionals
-      .map((p) => {
-        const items = revenueData.filter((a) => a.profissional_id === p.id);
-        const total = items.reduce((sum, a) => sum + (Number(a.valor_cobrado) || 0), 0);
-        return { ...p, total, count: items.length };
-      })
-      .filter((p) => (selectedProfessional ? p.id === selectedProfessional : p.count > 0))
-      .sort((a, b) => b.total - a.total);
+    return calculateRevenueByProfessional(professionals, revenueData, selectedProfessional);
   }, [professionals, revenueData, selectedProfessional]);
 
   const startEditService = (service) => {
@@ -761,7 +744,7 @@ const AdminDashboard = ({ onClose }) => {
                     {!editingProfessional && professionalForm.nome && (
                       <div className="flex items-center gap-2 px-3 py-2 bg-lavender-50 rounded-xl border border-lavender-100">
                         <span className="text-[10px] font-black uppercase tracking-widest text-lavender-400">Login</span>
-                        <span className="text-xs font-bold text-lavender-700 truncate">{generateEmail(professionalForm.nome)}</span>
+                        <span className="text-xs font-bold text-lavender-700 truncate">{generateProfessionalEmail(professionalForm.nome)}</span>
                       </div>
                     )}
                     {!editingProfessional && (
