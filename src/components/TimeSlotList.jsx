@@ -1,19 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import {
-  format,
-  startOfDay,
-  endOfDay,
-  parseISO,
-  addDays,
-  isSameDay
-} from 'date-fns';
+import { useState, useEffect } from 'react';
+import { format, startOfDay, endOfDay, parseISO, addDays, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Plus, Scissors, Loader2, Calendar as CalendarIcon, Clock, Edit2, User } from 'lucide-react';
+import { Plus, Scissors, Loader2, Calendar as CalendarIcon, Clock, Edit2, User, Package } from 'lucide-react';
 import { formatBRL } from '../lib/money';
 import { supabase } from '../lib/supabase';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 
-const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onEdit }) => {
+const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onAddCombo, onEdit }) => {
   const [dayAppointments, setDayAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
   const todayLabel = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR });
@@ -21,155 +14,176 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onEdit }) =>
   useEffect(() => {
     const fetchDayAppointments = async () => {
       if (!selectedDate || (!professionalId && professionalId !== null)) return;
-      
       setLoading(true);
       try {
         const queryStart = startOfDay(addDays(selectedDate, -1));
         const queryEnd = endOfDay(addDays(selectedDate, 1));
-
         let query = supabase
           .from('agendamentos')
           .select('*, profissionais(nome)')
           .gte('data_hora', queryStart.toISOString())
           .lte('data_hora', queryEnd.toISOString())
           .order('data_hora', { ascending: true });
-
-        if (professionalId) {
-          query = query.eq('profissional_id', professionalId);
-        }
-
+        if (professionalId) query = query.eq('profissional_id', professionalId);
         const { data, error } = await query;
-
-        if (error) {
-          console.error('TimeSlotList: falha ao buscar agenda do dia:', error.message);
-          setDayAppointments([]);
-          setLoading(false);
-          return;
-        }
-        const sameDayAppointments = (data || []).filter((appointment) => {
-          try {
-            return isSameDay(parseISO(appointment.data_hora), selectedDate);
-          } catch {
-            return false;
-          }
-        });
-
-        setDayAppointments(sameDayAppointments);
-      } finally {
-        setLoading(false);
-      }
+        if (error) { setDayAppointments([]); setLoading(false); return; }
+        setDayAppointments((data || []).filter(a => {
+          try { return isSameDay(parseISO(a.data_hora), selectedDate); } catch { return false; }
+        }));
+      } finally { setLoading(false); }
     };
-
     fetchDayAppointments();
   }, [selectedDate, professionalId]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-6 h-6 animate-spin text-lavender-500" />
-      </div>
-    );
+  // Agrupa combos pelo combo_id
+  const grouped = [];
+  const seenCombos = new Set();
+  for (const a of dayAppointments) {
+    if (a.combo_id) {
+      if (!seenCombos.has(a.combo_id)) {
+        seenCombos.add(a.combo_id);
+        grouped.push({ type: 'combo', id: a.combo_id, items: dayAppointments.filter(x => x.combo_id === a.combo_id) });
+      }
+    } else {
+      grouped.push({ type: 'single', id: a.id, item: a });
+    }
   }
 
+  if (loading) return (
+    <div className="flex items-center justify-center py-8">
+      <Loader2 className="w-6 h-6 animate-spin text-lavender-500" />
+    </div>
+  );
+
   return (
-    <div className="space-y-4 sm:space-y-6 md:space-y-8 pb-36 sm:pb-40 pt-2 sm:pt-4 px-2 sm:px-4 md:px-0">
+    <div className="space-y-4 pb-36 pt-2 px-2 sm:px-4 md:px-0">
+      {/* Header */}
       <div className="flex flex-col gap-1">
-        <span className="text-gray-400 text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-50">Programação do Dia</span>
-        <span className="text-gray-400 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider opacity-70">
-          Hoje: {todayLabel}
-        </span>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <h3 className="text-base sm:text-lg md:text-xl font-black text-gray-900 font-display capitalize break-words">
+        <span className="text-gray-400 text-[9px] font-black uppercase tracking-widest opacity-50">Programação do Dia</span>
+        <span className="text-gray-400 text-[9px] font-bold uppercase tracking-wider opacity-70">Hoje: {todayLabel}</span>
+        <div className="flex items-center justify-between gap-3 mt-1">
+          <h3 className="text-base sm:text-lg font-black text-gray-900 font-display capitalize">
             {format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
           </h3>
-          <div className="flex items-center gap-2 text-lavender-500 font-bold bg-lavender-50 px-3 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-xs whitespace-nowrap">
-            <Clock className="w-3 h-3 flex-shrink-0" />
+          <div className="flex items-center gap-1.5 text-lavender-500 font-bold bg-lavender-50 px-3 py-1 rounded-full text-[9px] whitespace-nowrap">
+            <Clock className="w-3 h-3" />
             {dayAppointments.length} agendados
           </div>
         </div>
       </div>
-      
-      <div className="space-y-3 sm:space-y-4">
+
+      <div className="space-y-2.5">
         <AnimatePresence mode="popLayout">
-          {dayAppointments.length === 0 ? (
-            <Motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white/40 border-2 border-dashed border-gray-100 rounded-xl sm:rounded-2xl md:rounded-[2.5rem] p-6 sm:p-8 md:p-12 flex flex-col items-center justify-center text-gray-300"
-            >
-              <CalendarIcon className="w-8 sm:w-10 h-8 sm:h-10 mb-3 sm:mb-4 opacity-20" />
-              <span className="text-xs sm:text-sm font-bold tracking-tight">Nenhuma atividade para esta data</span>
+          {grouped.length === 0 ? (
+            <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="bg-white/40 border-2 border-dashed border-gray-100 rounded-2xl p-10 flex flex-col items-center text-gray-300">
+              <CalendarIcon className="w-8 h-8 mb-2 opacity-20" />
+              <span className="text-xs font-bold">Nenhuma atividade para esta data</span>
             </Motion.div>
-          ) : (
-            dayAppointments.map((appointment, index) => (
-              <Motion.div 
-                key={appointment.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="glass rounded-lg sm:rounded-xl md:rounded-3xl p-3 sm:p-4 md:p-5 flex items-center border-lavender-100 group gap-3"
-              >
-                {/* horário */}
-                <div className="flex flex-col items-center justify-center bg-gray-50 rounded-lg sm:rounded-2xl w-12 h-12 sm:w-16 sm:h-16 group-hover:bg-lavender-600 group-hover:text-white transition-colors flex-shrink-0">
-                  <span className="text-[8px] sm:text-xs font-black uppercase opacity-40 group-hover:text-white/50">Início</span>
-                  <span className="text-base sm:text-lg font-black font-display tracking-tight">
-                    {format(parseISO(appointment.data_hora), 'HH:mm')}
-                  </span>
-                </div>
+          ) : grouped.map((group, index) => (
+            <Motion.div key={group.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.06 }}>
 
-                {/* info */}
-                <div className="border-l border-gray-100 pl-3 sm:pl-5 space-y-1 flex-1 min-w-0">
-                  <div className="text-gray-900 font-black font-display text-sm sm:text-base md:text-lg truncate">
-                    {appointment.cliente_nome}
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-400 text-[8px] sm:text-[10px] font-black uppercase tracking-widest truncate">
-                    <Scissors className="w-3 h-3 text-lavender-400 flex-shrink-0" />
-                    <span className="truncate">{appointment.servico}</span>
-                  </div>
-                  {appointment.profissionais?.nome && (
-                    <div className="flex items-center gap-1.5 text-[8px] sm:text-[10px] font-bold text-gray-400 truncate">
-                      <User className="w-3 h-3 text-lavender-300 flex-shrink-0" />
-                      <span className="truncate">{appointment.profissionais.nome}</span>
+              {/* ── Agendamento normal ── */}
+              {group.type === 'single' && (() => {
+                const a = group.item;
+                return (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-stretch overflow-hidden">
+                    <div className="flex flex-col items-center justify-center bg-gray-50 w-14 py-3 flex-shrink-0">
+                      <span className="text-[8px] font-black uppercase text-gray-300">início</span>
+                      <span className="text-sm font-black text-gray-700 font-display">{format(parseISO(a.data_hora), 'HH:mm')}</span>
                     </div>
-                  )}
-                  {appointment.valor_cobrado != null && (
-                    <div className="text-[10px] sm:text-xs font-black text-lavender-700 pt-0.5">
-                      {formatBRL(appointment.valor_cobrado)}
+                    <div className="flex-1 min-w-0 px-3 py-3">
+                      <p className="font-black text-gray-900 text-sm truncate">{a.cliente_nome}</p>
+                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                        <span className="flex items-center gap-1 text-[10px] text-gray-400 font-bold">
+                          <Scissors className="w-2.5 h-2.5 text-lavender-400" />{a.servico}
+                        </span>
+                        {a.profissionais?.nome && (
+                          <span className="flex items-center gap-1 text-[10px] text-gray-400 font-bold">
+                            <User className="w-2.5 h-2.5 text-lavender-300" />{a.profissionais.nome}
+                          </span>
+                        )}
+                      </div>
+                      {a.valor_cobrado != null && (
+                        <span className="text-[11px] font-black text-lavender-600 mt-0.5 block">{formatBRL(a.valor_cobrado)}</span>
+                      )}
                     </div>
-                  )}
-                </div>
+                    {onEdit && (
+                      <button onClick={() => onEdit(a)}
+                        className="w-10 flex items-center justify-center text-gray-300 hover:text-lavender-600 hover:bg-lavender-50 transition-all flex-shrink-0">
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
 
-                {/* botão editar */}
-                {onEdit && (
-                  <button
-                    onClick={() => onEdit(appointment)}
-                    className="flex-shrink-0 w-9 h-9 rounded-xl bg-gray-100 hover:bg-lavender-600 hover:text-white text-gray-400 flex items-center justify-center transition-all active:scale-90"
-                    aria-label="Editar agendamento"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                )}
-              </Motion.div>
-            ))
-          )}
+              {/* ── Combo ── */}
+              {group.type === 'combo' && (
+                <div className="rounded-2xl overflow-hidden border-2 border-lavender-200">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-lavender-600">
+                    <Package className="w-3.5 h-3.5 text-white" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white">Combo</span>
+                    <span className="text-[10px] text-lavender-200 font-bold ml-auto">{group.items[0].cliente_nome}</span>
+                    <span className="text-[10px] font-black text-white bg-lavender-500 px-2 py-0.5 rounded-full">
+                      {formatBRL(group.items.reduce((s, x) => s + (Number(x.valor_cobrado) || 0), 0))}
+                    </span>
+                  </div>
+                  <div className="divide-y divide-lavender-100 bg-white">
+                    {group.items.map((a, i) => (
+                      <div key={a.id} className="flex items-stretch">
+                        <div className="flex flex-col items-center justify-center w-12 py-2.5 flex-shrink-0 bg-lavender-50">
+                          <span className="text-[8px] font-black text-lavender-300 uppercase">{i === 0 ? 'início' : ''}</span>
+                          <span className="text-xs font-black text-lavender-700">{format(parseISO(a.data_hora), 'HH:mm')}</span>
+                        </div>
+                        <div className="flex-1 min-w-0 px-3 py-2.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="flex items-center gap-1 text-[10px] font-black text-gray-700">
+                              <Scissors className="w-2.5 h-2.5 text-lavender-400" />{a.servico}
+                            </span>
+                            {a.profissionais?.nome && (
+                              <span className="flex items-center gap-1 text-[10px] text-gray-400 font-bold">
+                                <User className="w-2.5 h-2.5 text-lavender-300" />{a.profissionais.nome}
+                              </span>
+                            )}
+                          </div>
+                          {a.observacoes && (
+                            <span className="text-[9px] text-lavender-400 font-bold">{a.observacoes}</span>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-black text-lavender-600 pr-2 flex-shrink-0 self-center">{formatBRL(a.valor_cobrado)}</span>
+                        {onEdit && (
+                          <button onClick={() => onEdit(a)}
+                            className="w-9 flex items-center justify-center text-lavender-300 hover:text-lavender-600 hover:bg-lavender-100 transition-all flex-shrink-0 border-l border-lavender-100">
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Motion.div>
+          ))}
         </AnimatePresence>
       </div>
 
-      <Motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => onAddBooking()}
-        type="button"
-        aria-label="Novo agendamento"
-        className="fixed right-4 sm:right-6 md:right-8 z-[60] bg-gray-900 text-white p-3.5 sm:p-4 md:p-5 rounded-2xl sm:rounded-[2rem] shadow-2xl flex items-center gap-2 md:gap-3 active:bg-lavender-700 transition-all border border-white/10 group overflow-hidden
-          bottom-[calc(6.75rem+env(safe-area-inset-bottom,0px))]"
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-lavender-400 to-lavender-700 opacity-0 group-hover:opacity-100 transition-opacity" />
-        <Plus className="w-5 sm:w-6 md:w-6 h-5 sm:h-6 md:h-6 relative z-10 flex-shrink-0" />
-        <span className="hidden sm:inline font-black font-display tracking-tight text-[10px] md:text-sm uppercase relative z-10 whitespace-nowrap">
-          Novo agendamento
-        </span>
-      </Motion.button>
+      {/* FABs */}
+      <div className="fixed right-4 sm:right-6 z-[60] flex flex-col items-end gap-2 bottom-[calc(6.75rem+env(safe-area-inset-bottom,0px))]">
+        <Motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+          onClick={() => onAddCombo?.()} type="button"
+          className="bg-white text-lavender-600 border-2 border-lavender-200 px-3.5 py-2.5 rounded-2xl shadow-lg flex items-center gap-2 transition-all">
+          <Package className="w-4 h-4" />
+          <span className="font-black text-[10px] uppercase tracking-wide">Combo</span>
+        </Motion.button>
+        <Motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+          onClick={() => onAddBooking()} type="button"
+          className="relative bg-gray-900 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2 transition-all border border-white/10 group overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-lavender-400 to-lavender-700 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <Plus className="w-5 h-5 relative z-10" />
+          <span className="font-black text-[10px] uppercase tracking-wide relative z-10 hidden sm:inline">Novo agendamento</span>
+        </Motion.button>
+      </div>
     </div>
   );
 };

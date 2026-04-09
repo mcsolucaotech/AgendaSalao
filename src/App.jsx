@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase';
 import CalendarView from './components/CalendarView';
 import TimeSlotList from './components/TimeSlotList';
 import BookingForm from './components/BookingForm';
+import ComboForm from './components/ComboForm';
 import AppointmentsManager from './components/AppointmentsManager';
 import AdminDashboard from './components/AdminDashboard';
 import {
@@ -54,7 +55,9 @@ const MainApp = ({ onLogout }) => {
   const [professionals, setProfessionals] = useState([]);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState(null);
   const [showBookingForm, setShowBookingForm] = useState(false);
+  const [showComboForm, setShowComboForm] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState(null);
+  const [editingCombo, setEditingCombo] = useState(null); // array de agendamentos do combo
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
@@ -96,15 +99,31 @@ const MainApp = ({ onLogout }) => {
     fetchProfessionals();
   }, []);
 
-  const handleEdit = (appointment) => {
-    setEditingAppointment(appointment);
-    setShowBookingForm(true);
+  const handleEdit = async (appointment) => {
+    if (appointment.combo_id) {
+      // Busca todos os agendamentos do combo
+      const { data } = await supabase
+        .from('agendamentos')
+        .select('*, profissionais(nome)')
+        .eq('combo_id', appointment.combo_id)
+        .order('data_hora', { ascending: true });
+      setEditingCombo(data || []);
+      setShowComboForm(true);
+    } else {
+      setEditingAppointment(appointment);
+      setShowBookingForm(true);
+    }
   };
 
   const handleSave = () => {
     setShowBookingForm(false);
     setEditingAppointment(null);
-    // Força re-render dos filhos via key (sem reload de página)
+    setSelectedDate(d => new Date(d));
+  };
+
+  const handleComboSave = () => {
+    setShowComboForm(false);
+    setEditingCombo(null);
     setSelectedDate(d => new Date(d));
   };
 
@@ -257,6 +276,7 @@ const MainApp = ({ onLogout }) => {
                   setEditingAppointment(null);
                   setShowBookingForm(true);
                 }}
+                onAddCombo={() => setShowComboForm(true)}
                 onEdit={handleEdit}
               />
             </motion.div>
@@ -290,6 +310,18 @@ const MainApp = ({ onLogout }) => {
           <span className="text-[10px] font-black uppercase tracking-widest">Agenda</span>
         </button>
       </nav>
+
+      {/* Combo Form Modal */}
+      <AnimatePresence>
+        {showComboForm && (
+          <ComboForm
+            selectedDate={selectedDate}
+            initialData={editingCombo}
+            onClose={() => { setShowComboForm(false); setEditingCombo(null); }}
+            onSave={handleComboSave}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Booking Form Modal */}
       <AnimatePresence>
