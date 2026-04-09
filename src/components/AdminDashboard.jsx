@@ -40,7 +40,6 @@ const AdminDashboard = ({ onClose }) => {
 
   const [professionalForm, setProfessionalForm] = useState({
     nome: '',
-    email: '',
     senha: '',
     percentual_salao: ''
   });
@@ -257,7 +256,7 @@ const AdminDashboard = ({ onClose }) => {
 
       if (error) throw error;
 
-      setProfessionalForm({ nome: '', email: '', senha: '', percentual_salao: '' });
+      setProfessionalForm({ nome: '', senha: '', percentual_salao: '' });
       setShowAddProfessional(false);
       loadData();
     } catch (error) {
@@ -291,7 +290,7 @@ const AdminDashboard = ({ onClose }) => {
       if (error) throw error;
 
       setEditingProfessional(null);
-      setProfessionalForm({ nome: '', email: '', senha: '', percentual_salao: '' });
+      setProfessionalForm({ nome: '', senha: '', percentual_salao: '' });
       loadData();
     } catch (error) {
       console.error('Erro ao editar profissional:', error);
@@ -335,7 +334,6 @@ const AdminDashboard = ({ onClose }) => {
     setEditingProfessional(professional);
     setProfessionalForm({
       nome: professional.nome,
-      email: professional.email || '',
       senha: '',
       percentual_salao: professional.percentual_salao != null ? professional.percentual_salao.toString() : ''
     });
@@ -780,7 +778,7 @@ const AdminDashboard = ({ onClose }) => {
                         setShowAddProfessional(false);
                         setEditingProfessional(null);
                         setProfessionalError('');
-                        setProfessionalForm({ nome: '', email: '', senha: '', percentual_salao: '' });
+                        setProfessionalForm({ nome: '', senha: '', percentual_salao: '' });
                       }}
                       className="flex-1 py-3 sm:py-4 bg-gray-100 text-gray-600 rounded-lg sm:rounded-2xl font-bold hover:bg-gray-200 transition-colors text-sm sm:text-base"
                     >

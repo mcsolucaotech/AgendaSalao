@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import Login from './components/Login';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
-import { APP_TITLE_PREFIX, APP_TITLE_SUFFIX } from './constants';
+import AppLogo from './components/AppLogo';
 
 const BookingForm = lazy(() => import('./components/BookingForm'));
 const ComboForm = lazy(() => import('./components/ComboForm'));
@@ -179,10 +179,8 @@ const MainApp = ({ onLogout }) => {
               <Sparkles className="w-4 h-4 text-lavender-400" />
               <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Premium Management</div>
             </div>
-            <h1 className="text-4xl font-black text-gray-900 font-display leading-none tracking-tight">
-              {APP_TITLE_PREFIX}
-              <span className="text-lavender-600">.</span>
-              {APP_TITLE_SUFFIX}
+            <h1 className="leading-none">
+              <AppLogo className="text-4xl" />
             </h1>
             {userName && (
               <p className="text-xs text-gray-400 font-bold mt-1">

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { LogIn, Mail, Lock, Sparkles } from 'lucide-react';
 import { motion as Motion } from 'framer-motion';
-import { APP_TITLE_PREFIX, APP_TITLE_SUFFIX } from '../constants';
+import AppLogo from './AppLogo';
 import { normalizeEmail } from '../lib/validation';
 
 const LOCKOUT_STORAGE_KEY = 'agenda_salao_lockout_until';
@@ -87,10 +87,8 @@ const Login = () => {
             >
               <Sparkles className="w-8 sm:w-10 h-8 sm:h-10 text-white" />
             </Motion.div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-900 font-display tracking-tight mb-2">
-              {APP_TITLE_PREFIX}
-              <span className="text-lavender-600">.</span>
-              {APP_TITLE_SUFFIX}
+            <h1 className="mb-2">
+              <AppLogo className="text-2xl sm:text-3xl md:text-4xl" />
             </h1>
             <p className="text-gray-400 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em]">Premium Management</p>
           </div>
