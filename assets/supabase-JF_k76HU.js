@@ -1,0 +1,1 @@
+import{x as e}from"./utils-vendor-1H60RJ1U.js";var t=e(`https://hnqnkgizfvhhusaaovfx.supabase.co`,`eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhucW5rZ2l6ZnZoaHVzYWFvdmZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyNzIzNjUsImV4cCI6MjA5MDg0ODM2NX0.O2eaHxWmS-OhHvbBN3hjelSvMrIWwfFGjrNSw78TD_Q`);export{t};
