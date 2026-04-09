@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatBRL } from '../lib/money';
 import { format, parseISO, startOfToday } from 'date-fns';
@@ -7,7 +7,7 @@ import {
   Search, Edit2, Trash2, User,
   Scissors, AlertCircle, Loader2, Package
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 
 const AppointmentsManager = ({ onEdit }) => {
   const [appointments, setAppointments] = useState([]);
@@ -19,6 +19,7 @@ const AppointmentsManager = ({ onEdit }) => {
   const [professionalIdFilter, setProfessionalIdFilter] = useState(''); // '' = todas
   const [deletingId, setDeletingId] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const deferredSearch = useDeferredValue(search);
 
   useEffect(() => {
     const loadProfessionals = async () => {
@@ -31,11 +32,7 @@ const AppointmentsManager = ({ onEdit }) => {
     loadProfessionals();
   }, []);
 
-  useEffect(() => {
-    fetchAppointments();
-  }, [filter, professionalIdFilter]);
-
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -74,7 +71,12 @@ const AppointmentsManager = ({ onEdit }) => {
 
     setAppointments(data || []);
     setLoading(false);
-  };
+  }, [filter, professionalIdFilter]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- atualização de estado ocorre dentro da função assíncrona de busca
+    fetchAppointments();
+  }, [fetchAppointments]);
 
   const handleDelete = async (id) => {
     setDeleteLoading(true);
@@ -95,34 +97,34 @@ const AppointmentsManager = ({ onEdit }) => {
     setDeleteLoading(false);
   };
 
-  const searchLower = search.trim().toLowerCase();
-  const filtered = appointments.filter((a) => {
-    const profNome = (a.profissionais?.nome || '').toLowerCase();
-    const matchesSearch =
-      !searchLower ||
-      a.cliente_nome.toLowerCase().includes(searchLower) ||
-      a.servico.toLowerCase().includes(searchLower) ||
-      profNome.includes(searchLower);
-    return matchesSearch;
-  });
+  const searchLower = deferredSearch.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    return appointments.filter((a) => {
+      const profNome = (a.profissionais?.nome || '').toLowerCase();
+      const cliente = (a.cliente_nome || '').toLowerCase();
+      const servico = (a.servico || '').toLowerCase();
+      return !searchLower || cliente.includes(searchLower) || servico.includes(searchLower) || profNome.includes(searchLower);
+    });
+  }, [appointments, searchLower]);
 
-  // Agrupa combos pelo combo_id, mantendo ordem cronológica
-  const grouped = [];
-  const seenCombos = new Set();
-  for (const a of filtered) {
-    if (a.combo_id) {
-      if (!seenCombos.has(a.combo_id)) {
-        seenCombos.add(a.combo_id);
-        grouped.push({
-          type: 'combo',
-          id: a.combo_id,
-          items: filtered.filter(x => x.combo_id === a.combo_id),
-        });
+  // Agrupa combos pelo combo_id sem reprocessamento quadrático
+  const grouped = useMemo(() => {
+    const byCombo = new Map();
+    const result = [];
+    for (const a of filtered) {
+      if (a.combo_id) {
+        if (!byCombo.has(a.combo_id)) {
+          const group = { type: 'combo', id: a.combo_id, items: [] };
+          byCombo.set(a.combo_id, group);
+          result.push(group);
+        }
+        byCombo.get(a.combo_id).items.push(a);
+      } else {
+        result.push({ type: 'single', id: a.id, item: a });
       }
-    } else {
-      grouped.push({ type: 'single', id: a.id, item: a });
     }
-  }
+    return result;
+  }, [filtered]);
 
   // ---- Status badge color ----
   const statusColor = {
@@ -219,7 +221,7 @@ const AppointmentsManager = ({ onEdit }) => {
         ) : (
           <div className="space-y-3">
             {grouped.map((group, index) => (
-              <motion.div key={group.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.04 }}>
+              <Motion.div key={group.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.04 }}>
 
                 {/* ── Agendamento normal ── */}
                 {group.type === 'single' && (() => {
@@ -283,7 +285,7 @@ const AppointmentsManager = ({ onEdit }) => {
                       {/* Confirmação exclusão */}
                       <AnimatePresence>
                         {deletingId === a.id && (
-                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                          <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             className="absolute inset-0 bg-white/96 z-10 flex flex-col items-center justify-center p-4 text-center">
                             <p className="font-black text-gray-900 mb-1 text-sm">Excluir agendamento?</p>
                             <p className="text-xs text-gray-400 mb-4">Esta ação não pode ser desfeita.</p>
@@ -295,7 +297,7 @@ const AppointmentsManager = ({ onEdit }) => {
                                 {deleteLoading ? <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Confirmar'}
                               </button>
                             </div>
-                          </motion.div>
+                          </Motion.div>
                         )}
                       </AnimatePresence>
                     </div>
@@ -358,7 +360,7 @@ const AppointmentsManager = ({ onEdit }) => {
                     {/* Confirmação exclusão combo */}
                     <AnimatePresence>
                       {deletingId === group.id && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                           className="relative bg-white border-t border-lavender-100 p-4 text-center">
                           <p className="font-black text-gray-900 mb-1 text-sm">Excluir combo inteiro?</p>
                           <p className="text-xs text-gray-400 mb-3">Todos os {group.items.length} serviços serão removidos.</p>
@@ -368,8 +370,10 @@ const AppointmentsManager = ({ onEdit }) => {
                             <button
                               onClick={async () => {
                                 setDeleteLoading(true);
-                                await supabase.from('agendamentos').delete().eq('combo_id', group.id);
-                                setAppointments(prev => prev.filter(a => a.combo_id !== group.id));
+                                const { error: deleteError } = await supabase.from('agendamentos').delete().eq('combo_id', group.id);
+                                if (!deleteError) {
+                                  setAppointments(prev => prev.filter(a => a.combo_id !== group.id));
+                                }
                                 setDeletingId(null);
                                 setDeleteLoading(false);
                               }}
@@ -378,12 +382,12 @@ const AppointmentsManager = ({ onEdit }) => {
                               {deleteLoading ? <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Confirmar'}
                             </button>
                           </div>
-                        </motion.div>
+                        </Motion.div>
                       )}
                     </AnimatePresence>
                   </div>
                 )}
-              </motion.div>
+              </Motion.div>
             ))}
           </div>
         )}

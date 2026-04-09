@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { format, addMinutes, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -8,6 +8,14 @@ import {
 import { supabase } from '../lib/supabase';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { formatBRL } from '../lib/money';
+import {
+  isValidIsoDate,
+  parseCurrencyInput,
+  sanitizePhone,
+  sanitizeText,
+  MAX_NAME_LENGTH,
+  MAX_NOTES_LENGTH,
+} from '../lib/validation';
 
 // ---------------------------------------------------------------------------
 // BookingForm — wizard de 3 passos para criar ou editar um agendamento
@@ -27,6 +35,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
   const [professionalsLoading, setProfessionalsLoading] = useState(true);
   const [precoModo, setPrecoModo] = useState('padrao');
   const [valorPersonalizado, setValorPersonalizado] = useState('');
+  const selectedSlotRef = useRef(null);
 
   const [formData, setFormData] = useState({
     cliente_nome: initialData?.cliente_nome || '',
@@ -123,9 +132,9 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
         .lte('data_hora', end.toISOString());
 
       // Ao editar, remove só o próprio registro dos ocupados (por id)
-      const occupied = (data || [])
+      const occupied = new Set((data || [])
         .filter((d) => !isEditing || d.id !== initialData?.id)
-        .map((d) => parseISO(d.data_hora).getTime());
+        .map((d) => parseISO(d.data_hora).getTime()));
 
       const slots = [];
       let current = new Date(selectedDate);
@@ -138,7 +147,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
 
       while (current <= dayEnd) {
         const isPast = isToday && current <= now;
-        if (!occupied.includes(current.getTime()) && !isPast) {
+        if (!occupied.has(current.getTime()) && !isPast) {
           slots.push(new Date(current));
         }
         current = addMinutes(current, 30);
@@ -161,19 +170,27 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
       setFormData((f) => ({ ...f, data_hora: '' }));
       if (step === (needsProfessionalStep ? 4 : 3)) setStep(needsProfessionalStep ? 3 : 2);
     }
-  }, [availableSlots, formData.data_hora, slotsLoading, step]);
+  }, [availableSlots, formData.data_hora, needsProfessionalStep, slotsLoading, step]);
+
+  useEffect(() => {
+    if (!formData.data_hora || !selectedSlotRef.current) return;
+    selectedSlotRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [formData.data_hora, step]);
 
   // ---------------------------------------------------------------------------
   // Máscara de WhatsApp: (XX) XXXXX-XXXX
   // ---------------------------------------------------------------------------
   const formatWhatsApp = (value) => {
-    const digits = value.replace(/\D/g, '').slice(0, 11);
+    const digits = sanitizePhone(value);
     if (digits.length <= 2) return digits;
     if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
   };
 
-  const selectedService = services.find((s) => s.id === formData.servico_id);
+  const selectedService = useMemo(
+    () => services.find((s) => s.id === formData.servico_id),
+    [services, formData.servico_id]
+  );
   const precoTabelaServico = selectedService != null ? Number(selectedService.preco) : NaN;
 
   const resolveValorCobrado = () => {
@@ -181,9 +198,8 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
       if (Number.isNaN(precoTabelaServico)) return { ok: false, value: null, message: 'Serviço sem preço na tabela.' };
       return { ok: true, value: precoTabelaServico, message: null };
     }
-    const raw = String(valorPersonalizado).trim().replace(/\s/g, '').replace(',', '.');
-    const n = parseFloat(raw);
-    if (Number.isNaN(n) || n < 0) {
+    const n = parseCurrencyInput(valorPersonalizado);
+    if (n == null) {
       return { ok: false, value: null, message: 'Informe um valor válido (≥ 0).' };
     }
     return { ok: true, value: n, message: null };
@@ -193,7 +209,9 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
   // Submissão: INSERT ou UPDATE
   // ---------------------------------------------------------------------------
   const handleSubmit = async () => {
-    if (!formData.cliente_nome || !formData.data_hora) return;
+    const clienteNome = sanitizeText(formData.cliente_nome, MAX_NAME_LENGTH);
+    const observacoes = sanitizeText(formData.observacoes, MAX_NOTES_LENGTH);
+    if (!clienteNome || !formData.data_hora || !isValidIsoDate(formData.data_hora)) return;
     setLoading(true);
     setSubmitError(null);
 
@@ -233,12 +251,12 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
 
     const payload = {
       data_hora: formData.data_hora,
-      cliente_nome: formData.cliente_nome,
-      cliente_telefone: formData.cliente_telefone,
+      cliente_nome: clienteNome,
+      cliente_telefone: formatWhatsApp(formData.cliente_telefone),
       servico: formData.servico,
       servico_id: formData.servico_id,
       profissional_id: formData.profissional_id,
-      observacoes: formData.observacoes,
+      observacoes,
       valor_cobrado: valorCobrado,
     };
 
@@ -263,7 +281,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
 
   // Função para obter ícone baseado na categoria
   const getServiceIcon = (categoria) => {
-    switch (categoria.toLowerCase()) {
+    switch ((categoria || '').toLowerCase()) {
       case 'corte': return <Scissors className="w-5 h-5" />;
       case 'finalização': return <Sparkles className="w-5 h-5" />;
       case 'tratamento': return <Zap className="w-5 h-5" />;
@@ -346,7 +364,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
             return (
               <button
                 key={slot.toISOString()}
-                ref={isSlotSelected ? (el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) : null}
+                ref={isSlotSelected ? selectedSlotRef : null}
                 onClick={() => { setFormData(f => ({ ...f, data_hora: slot.toISOString() })); setStep(needsProfessionalStep ? 4 : 3); }}
                 className={`
                   relative py-3 sm:py-4 rounded-lg sm:rounded-2xl font-black text-xs sm:text-sm transition-all
@@ -380,6 +398,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
           <input
             type="text"
             placeholder="Nome da Cliente"
+            maxLength={MAX_NAME_LENGTH}
             className="w-full pl-11 sm:pl-12 pr-4 py-3 sm:py-4 md:py-5 bg-gray-50 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none font-bold text-sm"
             value={formData.cliente_nome}
             onChange={e => setFormData(f => ({ ...f, cliente_nome: e.target.value }))}
@@ -402,6 +421,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
         <textarea
           placeholder="Observações (opcional)"
           rows={3}
+          maxLength={MAX_NOTES_LENGTH}
           className="w-full p-3 sm:p-4 md:p-5 bg-gray-50 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none font-bold resize-none text-sm"
           value={formData.observacoes}
           onChange={e => setFormData(f => ({ ...f, observacoes: e.target.value }))}

@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import CalendarView from './components/CalendarView';
 import TimeSlotList from './components/TimeSlotList';
-import BookingForm from './components/BookingForm';
-import ComboForm from './components/ComboForm';
-import AppointmentsManager from './components/AppointmentsManager';
-import AdminDashboard from './components/AdminDashboard';
 import {
   Users, LogOut, Sparkles,
   AlertCircle, Calendar as CalendarIcon,
   ClipboardList, Loader2, Settings
 } from 'lucide-react';
 import Login from './components/Login';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { APP_TITLE_PREFIX, APP_TITLE_SUFFIX } from './constants';
+
+const BookingForm = lazy(() => import('./components/BookingForm'));
+const ComboForm = lazy(() => import('./components/ComboForm'));
+const AppointmentsManager = lazy(() => import('./components/AppointmentsManager'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 
 // ---------------------------------------------------------------------------
 // ErrorBoundary — captura erros inesperados sem quebrar toda a aplicação
@@ -32,7 +33,7 @@ class ErrorBoundary extends React.Component {
         <div className="p-10 flex flex-col items-center justify-center min-h-screen bg-red-50 text-red-900">
           <AlertCircle className="w-16 h-16 mb-4" />
           <h1 className="text-2xl font-black mb-2 font-display">Ops! Ocorreu um erro.</h1>
-          <p className="opacity-70 text-sm max-w-md text-center">{this.state.error?.message}</p>
+          <p className="opacity-70 text-sm max-w-md text-center">Algo inesperado aconteceu. Recarregue a página e tente novamente.</p>
           <button
             onClick={() => window.location.reload()}
             className="mt-8 px-8 py-4 bg-red-600 text-white rounded-2xl font-bold"
@@ -62,6 +63,7 @@ const MainApp = ({ onLogout }) => {
   const [error, setError] = useState(null);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userName, setUserName] = useState('');
 
   useEffect(() => {
     const fetchProfessionals = async () => {
@@ -70,9 +72,9 @@ const MainApp = ({ onLogout }) => {
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Admin definido via user_metadata.role no Supabase Dashboard
-        // (Authentication > Users > Edit user > user_metadata: {"role": "admin"})
         setIsAdmin(user.user_metadata?.role === 'admin');
+        const nome = user.user_metadata?.nome || user.email?.split('@')[0] || '';
+        setUserName(nome.split('.').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' '));
       }
 
       const { data, error: err } = await supabase
@@ -131,12 +133,12 @@ const MainApp = ({ onLogout }) => {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#FBFBFF]">
-        <motion.div
+        <Motion.div
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
         >
           <Sparkles className="w-12 h-12 text-lavender-600" />
-        </motion.div>
+        </Motion.div>
         <div className="mt-6 text-gray-400 font-display font-black uppercase tracking-[0.3em] text-[10px]">
           Carregando Dados...
         </div>
@@ -182,6 +184,11 @@ const MainApp = ({ onLogout }) => {
               <span className="text-lavender-600">.</span>
               {APP_TITLE_SUFFIX}
             </h1>
+            {userName && (
+              <p className="text-xs text-gray-400 font-bold mt-1">
+                Olá, <span className="text-lavender-600">{userName}</span>
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && (
@@ -204,7 +211,7 @@ const MainApp = ({ onLogout }) => {
 
         {/* Seletor de profissional — só visível na aba calendário */}
         {view === 'calendar' && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             className="glass px-4 py-3 rounded-[2rem] border-lavender-100"
@@ -249,7 +256,7 @@ const MainApp = ({ onLogout }) => {
                 );
               })}
             </div>
-          </motion.div>
+          </Motion.div>
         )}
       </header>
 
@@ -257,7 +264,7 @@ const MainApp = ({ onLogout }) => {
       <main>
         <AnimatePresence mode="wait">
           {view === 'calendar' ? (
-            <motion.div
+            <Motion.div
               key="calendar-view"
               initial={{ opacity: 0, scale: 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -279,16 +286,18 @@ const MainApp = ({ onLogout }) => {
                 onAddCombo={() => setShowComboForm(true)}
                 onEdit={handleEdit}
               />
-            </motion.div>
+            </Motion.div>
           ) : (
-            <motion.div
-              key="manager-view"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <AppointmentsManager onEdit={handleEdit} />
-            </motion.div>
+            <Suspense fallback={<div className="py-16 text-center text-gray-400 font-bold text-sm">Carregando agenda...</div>}>
+              <Motion.div
+                key="manager-view"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+              >
+                <AppointmentsManager onEdit={handleEdit} />
+              </Motion.div>
+            </Suspense>
           )}
         </AnimatePresence>
       </main>
@@ -314,32 +323,38 @@ const MainApp = ({ onLogout }) => {
       {/* Combo Form Modal */}
       <AnimatePresence>
         {showComboForm && (
-          <ComboForm
-            selectedDate={selectedDate}
-            initialData={editingCombo}
-            onClose={() => { setShowComboForm(false); setEditingCombo(null); }}
-            onSave={handleComboSave}
-          />
+          <Suspense fallback={<div className="fixed inset-0 z-[100] bg-gray-900/40" />}>
+            <ComboForm
+              selectedDate={selectedDate}
+              initialData={editingCombo}
+              onClose={() => { setShowComboForm(false); setEditingCombo(null); }}
+              onSave={handleComboSave}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
       {/* Booking Form Modal */}
       <AnimatePresence>
         {showBookingForm && (
-          <BookingForm
-            selectedDate={selectedDate}
-            professionalId={selectedProfessionalId}
-            initialData={editingAppointment}
-            onClose={() => { setShowBookingForm(false); setEditingAppointment(null); }}
-            onSave={handleSave}
-          />
+          <Suspense fallback={<div className="fixed inset-0 z-[100] bg-gray-900/40" />}>
+            <BookingForm
+              selectedDate={selectedDate}
+              professionalId={selectedProfessionalId}
+              initialData={editingAppointment}
+              onClose={() => { setShowBookingForm(false); setEditingAppointment(null); }}
+              onSave={handleSave}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
       {/* Admin Dashboard Modal */}
       <AnimatePresence>
         {showAdminDashboard && (
-          <AdminDashboard onClose={() => setShowAdminDashboard(false)} />
+          <Suspense fallback={<div className="fixed inset-0 z-[100] bg-gray-900/40" />}>
+            <AdminDashboard onClose={() => setShowAdminDashboard(false)} />
+          </Suspense>
         )}
       </AnimatePresence>
     </div>
@@ -372,9 +387,9 @@ const App = () => {
   if (initializing) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#FBFBFF]">
-        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
+        <Motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
           <Loader2 className="w-10 h-10 text-lavender-400" />
-        </motion.div>
+        </Motion.div>
       </div>
     );
   }

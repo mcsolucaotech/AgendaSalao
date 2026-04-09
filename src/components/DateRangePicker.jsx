@@ -6,7 +6,7 @@ import {
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 
 const WEEK_DAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
@@ -108,7 +108,7 @@ export default function DateRangePicker({ value, onChange }) {
       {/* ── Dropdown ── */}
       <AnimatePresence>
         {open && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, y: 6, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.98 }}
@@ -203,7 +203,7 @@ export default function DateRangePicker({ value, onChange }) {
             <p className="text-center text-[10px] text-gray-300 font-medium pb-3">
               {selecting ? 'Toque no dia final' : 'Toque no dia inicial'}
             </p>
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
     </div>

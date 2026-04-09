@@ -5,6 +5,13 @@ import { X, User, Phone, Check, Plus, Trash2, Package, ChevronRight } from 'luci
 import { supabase } from '../lib/supabase';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { formatBRL } from '../lib/money';
+import {
+  isValidIsoDate,
+  parseCurrencyInput,
+  sanitizePhone,
+  sanitizeText,
+  MAX_NAME_LENGTH,
+} from '../lib/validation';
 
 async function fetchSlots(profissionalId, date, excludeIds = []) {
   const { data } = await supabase
@@ -14,9 +21,9 @@ async function fetchSlots(profissionalId, date, excludeIds = []) {
     .gte('data_hora', startOfDay(date).toISOString())
     .lte('data_hora', endOfDay(date).toISOString());
 
-  const occupied = (data || [])
+  const occupied = new Set((data || [])
     .filter(d => !excludeIds.includes(d.id))
-    .map(d => parseISO(d.data_hora).getTime());
+    .map(d => parseISO(d.data_hora).getTime()));
   const slots = [];
   let cur = new Date(date); cur.setHours(8, 0, 0, 0);
   const end = new Date(date); end.setHours(19, 0, 0, 0);
@@ -24,7 +31,7 @@ async function fetchSlots(profissionalId, date, excludeIds = []) {
   const isToday = cur.toDateString() === now.toDateString();
 
   while (cur <= end) {
-    if (!occupied.includes(cur.getTime()) && !(isToday && cur <= now))
+    if (!occupied.has(cur.getTime()) && !(isToday && cur <= now))
       slots.push(new Date(cur));
     cur = addMinutes(cur, 30);
   }
@@ -34,18 +41,15 @@ async function fetchSlots(profissionalId, date, excludeIds = []) {
 // ── Item card ───────────────────────────────────────────────────────────────
 function ItemCard({ index, item, professionals, services, selectedDate, onChange, onRemove, canRemove }) {
   const [slots, setSlots] = useState([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
   const [pickingSlot, setPickingSlot] = useState(false);
   const [rangeStart, setRangeStart] = useState(null);
 
   useEffect(() => {
     if (!item.profissional_id) return;
-    setLoadingSlots(true);
-    fetchSlots(item.profissional_id, selectedDate, item.id ? [item.id] : []).then(s => {
+    fetchSlots(item.profissional_id, selectedDate, item.id ? [item.id] : []).then((s) => {
       setSlots(s);
-      setLoadingSlots(false);
     });
-  }, [item.profissional_id, selectedDate]);
+  }, [item.profissional_id, item.id, selectedDate]);
 
   const prof = professionals.find(p => p.id === item.profissional_id);
   const svc  = services.find(s => s.id === item.servico_id);
@@ -82,7 +86,7 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
   };
 
   const rangeLabel = () => {
-    if (!item.data_hora) return loadingSlots ? 'Carregando...' : '⏰ Definir horário';
+    if (!item.data_hora) return '⏰ Definir horário';
     const s = format(parseISO(item.data_hora), 'HH:mm');
     const e = item.data_hora_fim ? format(parseISO(item.data_hora_fim), 'HH:mm') : null;
     if (rangeStart && !e) return `⏰ ${s} — toque no fim ou no mesmo para confirmar`;
@@ -207,7 +211,7 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
                         </button>
                       );
                     })}
-                    {!loadingSlots && slots.length === 0 && (
+                    {slots.length === 0 && (
                       <p className="col-span-5 text-[11px] text-gray-400 text-center py-2">Sem horários disponíveis</p>
                     )}
                   </div>
@@ -285,14 +289,22 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
   }, 0);
 
   const fmtPhone = (v) => {
-    const d = v.replace(/\D/g, '').slice(0, 11);
+    const d = sanitizePhone(v);
     if (d.length <= 2) return d;
     if (d.length <= 7) return `(${d.slice(0,2)}) ${d.slice(2)}`;
     return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
   };
 
   const handleSave = async () => {
-    if (!clienteNome) { setError('Informe o nome da cliente.'); return; }
+    const nomeSanitizado = sanitizeText(clienteNome, MAX_NAME_LENGTH);
+    const telefoneSanitizado = fmtPhone(clienteTelefone);
+    if (!nomeSanitizado) { setError('Informe o nome da cliente.'); return; }
+    for (const it of items) {
+      if (!isValidIsoDate(it.data_hora) || parseCurrencyInput(it.valor) == null) {
+        setError('Existe serviço com horário ou valor inválido.');
+        return;
+      }
+    }
     setSaving(true);
     setError('');
 
@@ -300,13 +312,13 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
       // UPDATE: atualiza cada agendamento existente pelo id
       const updates = items.map(it =>
         supabase.from('agendamentos').update({
-          cliente_nome: clienteNome,
-          cliente_telefone: clienteTelefone,
+          cliente_nome: nomeSanitizado,
+          cliente_telefone: telefoneSanitizado,
           profissional_id: it.profissional_id,
           servico_id: it.servico_id,
           servico: it.servico,
           data_hora: it.data_hora,
-          valor_cobrado: parseFloat(String(it.valor).replace(',', '.')),
+          valor_cobrado: parseCurrencyInput(it.valor),
           observacoes: it.data_hora_fim
             ? `Período: ${format(parseISO(it.data_hora), 'HH:mm')} → ${format(parseISO(it.data_hora_fim), 'HH:mm')}`
             : '',
@@ -321,13 +333,13 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
       const { error: err } = await supabase.from('agendamentos').insert(
         items.map(it => ({
           combo_id: comboId,
-          cliente_nome: clienteNome,
-          cliente_telefone: clienteTelefone,
+          cliente_nome: nomeSanitizado,
+          cliente_telefone: telefoneSanitizado,
           profissional_id: it.profissional_id,
           servico_id: it.servico_id,
           servico: it.servico,
           data_hora: it.data_hora,
-          valor_cobrado: parseFloat(String(it.valor).replace(',', '.')),
+          valor_cobrado: parseCurrencyInput(it.valor),
           observacoes: it.data_hora_fim
             ? `Período: ${format(parseISO(it.data_hora), 'HH:mm')} → ${format(parseISO(it.data_hora_fim), 'HH:mm')}`
             : '',
@@ -438,6 +450,7 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
                   <div className="relative">
                     <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
                     <input type="text" placeholder="Nome da cliente *"
+                      maxLength={MAX_NAME_LENGTH}
                       value={clienteNome} onChange={e => setClienteNome(e.target.value)}
                       className="w-full pl-10 pr-4 py-3.5 bg-gray-50 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-lavender-400" />
                   </div>

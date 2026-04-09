@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   format,
   addMonths,
@@ -17,7 +17,7 @@ import {
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 const CalendarView = ({ selectedDate, onDateSelect, professionalId }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -57,6 +57,19 @@ const CalendarView = ({ selectedDate, onDateSelect, professionalId }) => {
 
     fetchAppointments();
   }, [currentMonth, professionalId]);
+
+  const appointmentDayKeys = useMemo(() => {
+    const keys = new Set();
+    for (const app of appointments) {
+      try {
+        const parsed = parseISO(app.data_hora);
+        keys.add(format(parsed, 'yyyy-MM-dd'));
+      } catch {
+        // ignora registros inválidos para evitar quebrar a renderização
+      }
+    }
+    return keys;
+  }, [appointments]);
 
   const renderHeader = () => (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -115,12 +128,10 @@ const CalendarView = ({ selectedDate, onDateSelect, professionalId }) => {
         const isSelected = isSameDay(d, selectedDate);
         const isCurrentMonth = isSameMonth(d, monthStart);
         
-        const hasAppointment = appointments.some(app => 
-          isSameDay(parseISO(app.data_hora), d)
-        );
+        const hasAppointment = appointmentDayKeys.has(format(d, 'yyyy-MM-dd'));
 
         days.push(
-          <motion.div
+          <Motion.div
             key={d.toString()}
             whileTap={!isPast ? { scale: 0.9 } : {}}
             className={`
@@ -133,7 +144,7 @@ const CalendarView = ({ selectedDate, onDateSelect, professionalId }) => {
             onClick={() => !isPast && onDateSelect(d)}
           >
             {isSelected && (
-              <motion.div 
+              <Motion.div 
                 layoutId="calendar-selection"
                 className="absolute inset-0 bg-lavender-600 rounded-lg sm:rounded-2xl"
                 transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
@@ -158,7 +169,7 @@ const CalendarView = ({ selectedDate, onDateSelect, professionalId }) => {
             {isSameDay(d, today) && !isSelected && (
               <div className="absolute top-1 sm:top-2 right-1 sm:right-2 w-1 h-1 sm:w-1.5 sm:h-1.5 bg-red-400 rounded-full z-20 shadow-sm" />
             )}
-          </motion.div>
+          </Motion.div>
         );
         day = addDays(day, 1);
       }

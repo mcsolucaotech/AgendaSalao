@@ -1,13 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import {
   Settings, Users, Scissors, Plus, Edit, Trash2,
   X, Check, AlertCircle, Loader2, DollarSign, Calendar, TrendingUp, Terminal, Play
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO, startOfDay, endOfDay, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DateRangePicker from './DateRangePicker';
+import {
+  clampPercentage,
+  isValidIsoDate,
+  parseCurrencyInput,
+  sanitizeText,
+  MAX_NAME_LENGTH,
+} from '../lib/validation';
 
 const AdminDashboard = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState('services');
@@ -71,10 +78,15 @@ const AdminDashboard = ({ onClose }) => {
   }, []);
 
   // Revenue calculation
-  const calculateRevenue = async () => {
+  const calculateRevenue = useCallback(async () => {
+    if (!isValidIsoDate(dateRange.start) || !isValidIsoDate(dateRange.end)) {
+      setRevenueData([]);
+      return;
+    }
+
     setRevenueLoading(true);
     try {
-      let query = supabase
+      const query = supabase
         .from('agendamentos')
         .select(`
           id,
@@ -89,39 +101,35 @@ const AdminDashboard = ({ onClose }) => {
         .lte('data_hora', endOfDay(parseISO(dateRange.end)).toISOString())
         .order('data_hora', { ascending: false });
 
-      const { data, error } = await query;
+      const scopedQuery = selectedProfessional
+        ? query.eq('profissional_id', selectedProfessional)
+        : query;
+
+      const { data, error } = await scopedQuery;
       
       if (error) throw error;
-
-      const filtered = selectedProfessional 
-        ? data.filter(item => item.profissional_id === selectedProfessional)
-        : data;
-
-      setRevenueData(filtered);
+      setRevenueData(data || []);
     } catch (error) {
       console.error('Erro ao calcular faturamento:', error);
     }
     setRevenueLoading(false);
-  };
+  }, [dateRange.end, dateRange.start, selectedProfessional]);
 
   useEffect(() => {
     if (activeTab === 'revenue') {
       calculateRevenue();
     }
-  }, [activeTab, selectedProfessional, dateRange]);
+  }, [activeTab, calculateRevenue]);
 
   // Service CRUD
   const handleAddService = async () => {
     setServiceError('');
     
-    if (!serviceForm.descricao || !serviceForm.preco) {
-      setServiceError('Preencha todos os campos');
-      return;
-    }
+    const descricao = sanitizeText(serviceForm.descricao, 90);
+    const precoValue = parseCurrencyInput(serviceForm.preco);
 
-    const precoValue = parseFloat(serviceForm.preco);
-    if (isNaN(precoValue) || precoValue <= 0) {
-      setServiceError('Preço inválido');
+    if (!descricao || precoValue == null || precoValue <= 0) {
+      setServiceError('Preencha todos os campos');
       return;
     }
 
@@ -129,13 +137,13 @@ const AdminDashboard = ({ onClose }) => {
       const { error } = await supabase
         .from('servicos')
         .insert([{
-          descricao: serviceForm.descricao,
+          descricao,
           preco: precoValue
         }]);
 
       if (error) {
         console.error('Erro ao adicionar serviço:', error);
-        setServiceError(error.message);
+        setServiceError('Não foi possível adicionar o serviço.');
         return;
       }
 
@@ -151,14 +159,11 @@ const AdminDashboard = ({ onClose }) => {
   const handleEditService = async () => {
     setServiceError('');
     
-    if (!editingService || !serviceForm.descricao || !serviceForm.preco) {
-      setServiceError('Preencha todos os campos');
-      return;
-    }
+    const descricao = sanitizeText(serviceForm.descricao, 90);
+    const precoValue = parseCurrencyInput(serviceForm.preco);
 
-    const precoValue = parseFloat(serviceForm.preco);
-    if (isNaN(precoValue) || precoValue <= 0) {
-      setServiceError('Preço inválido');
+    if (!editingService || !descricao || precoValue == null || precoValue <= 0) {
+      setServiceError('Preencha todos os campos');
       return;
     }
 
@@ -166,14 +171,14 @@ const AdminDashboard = ({ onClose }) => {
       const { error } = await supabase
         .from('servicos')
         .update({
-          descricao: serviceForm.descricao,
+          descricao,
           preco: precoValue
         })
         .eq('id', editingService.id);
 
       if (error) {
         console.error('Erro ao editar serviço:', error);
-        setServiceError(error.message);
+        setServiceError('Não foi possível atualizar o serviço.');
         return;
       }
 
@@ -204,21 +209,31 @@ const AdminDashboard = ({ onClose }) => {
   // Professional CRUD
   const handleAddProfessional = async () => {
     setProfessionalError('');
-    if (!professionalForm.nome) { setProfessionalError('Nome é obrigatório.'); return; }
-    if (!professionalForm.email) { setProfessionalError('E-mail é obrigatório.'); return; }
-    if (!professionalForm.senha || professionalForm.senha.length < 6) {
-      setProfessionalError('Senha deve ter no mínimo 6 caracteres.');
+    const nome = sanitizeText(professionalForm.nome, MAX_NAME_LENGTH);
+    if (!nome) { setProfessionalError('Nome é obrigatório.'); return; }
+    if (!professionalForm.senha || professionalForm.senha.length < 8 || professionalForm.senha.length > 72) {
+      setProfessionalError('Senha deve ter entre 8 e 72 caracteres.');
       return;
     }
 
-    const percentual = professionalForm.percentual_salao !== '' ? parseFloat(professionalForm.percentual_salao) : null;
+    const percentual = clampPercentage(professionalForm.percentual_salao);
+    if (professionalForm.percentual_salao !== '' && percentual == null) {
+      setProfessionalError('Percentual do salão deve ser entre 0 e 100.');
+      return;
+    }
+
+    const emailGerado = generateEmail(nome);
+    if (!emailGerado) {
+      setProfessionalError('Nome inválido para gerar login.');
+      return;
+    }
 
     try {
-      // 1. Cria o usuário no Auth via RPC (requer função create_auth_user no Supabase)
+      // 1. Cria o usuário no Auth via RPC
       const { data: rpcData, error: rpcError } = await supabase.rpc('create_professional_user', {
-        p_email: professionalForm.email,
+        p_email: emailGerado,
         p_password: professionalForm.senha,
-        p_nome: professionalForm.nome,
+        p_nome: nome,
       });
 
       if (rpcError) throw rpcError;
@@ -229,8 +244,8 @@ const AdminDashboard = ({ onClose }) => {
       const { error } = await supabase
         .from('profissionais')
         .insert([{
-          nome: professionalForm.nome,
-          email: professionalForm.email,
+          nome,
+          email: emailGerado,
           user_id: userId,
           percentual_salao: percentual
         }]);
@@ -242,26 +257,26 @@ const AdminDashboard = ({ onClose }) => {
       loadData();
     } catch (error) {
       console.error('Erro ao adicionar profissional:', error);
-      setProfessionalError(error.message || 'Erro ao criar profissional.');
+      setProfessionalError('Não foi possível criar o profissional.');
     }
   };
 
   const handleEditProfessional = async () => {
     setProfessionalError('');
-    if (!editingProfessional || !professionalForm.nome) { setProfessionalError('Nome é obrigatório.'); return; }
+    const nome = sanitizeText(professionalForm.nome, MAX_NAME_LENGTH);
+    if (!editingProfessional || !nome) { setProfessionalError('Nome é obrigatório.'); return; }
 
-    const percentual = professionalForm.percentual_salao !== '' ? parseFloat(professionalForm.percentual_salao) : null;
+    const percentual = clampPercentage(professionalForm.percentual_salao);
+    if (professionalForm.percentual_salao !== '' && percentual == null) {
+      setProfessionalError('Percentual do salão deve ser entre 0 e 100.');
+      return;
+    }
 
     try {
       const updateData = {
-        nome: professionalForm.nome,
+        nome,
         percentual_salao: percentual,
       };
-
-      // Atualiza email se foi alterado
-      if (professionalForm.email && professionalForm.email !== editingProfessional.email) {
-        updateData.email = professionalForm.email;
-      }
 
       const { error } = await supabase
         .from('profissionais')
@@ -275,7 +290,7 @@ const AdminDashboard = ({ onClose }) => {
       loadData();
     } catch (error) {
       console.error('Erro ao editar profissional:', error);
-      setProfessionalError(error.message || 'Erro ao editar profissional.');
+      setProfessionalError('Não foi possível atualizar o profissional.');
     }
   };
 
@@ -292,6 +307,36 @@ const AdminDashboard = ({ onClose }) => {
       console.error('Erro ao excluir profissional:', error);
     }
   };
+
+  // Gera email a partir do nome: "Maria Silva" → "maria.silva@salao.com"
+  const generateEmail = (nome) => {
+    const username = sanitizeText(nome, MAX_NAME_LENGTH)
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '.')
+      .replace(/[^a-z0-9.]/g, '')
+      .replace(/\.{2,}/g, '.')
+      .replace(/^\.+|\.+$/g, '');
+    return username ? `${username}@salao.com` : '';
+  };
+
+  const revenueSummary = useMemo(() => {
+    const total = revenueData.reduce((sum, a) => sum + (Number(a.valor_cobrado) || 0), 0);
+    const count = revenueData.length;
+    const average = count > 0 ? total / count : 0;
+    return { total, count, average };
+  }, [revenueData]);
+
+  const revenueByProfessional = useMemo(() => {
+    return professionals
+      .map((p) => {
+        const items = revenueData.filter((a) => a.profissional_id === p.id);
+        const total = items.reduce((sum, a) => sum + (Number(a.valor_cobrado) || 0), 0);
+        return { ...p, total, count: items.length };
+      })
+      .filter((p) => (selectedProfessional ? p.id === selectedProfessional : p.count > 0))
+      .sort((a, b) => b.total - a.total);
+  }, [professionals, revenueData, selectedProfessional]);
 
   const startEditService = (service) => {
     setServiceError('');
@@ -325,13 +370,13 @@ const AdminDashboard = ({ onClose }) => {
 
   return (
     <AnimatePresence>
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       >
-        <motion.div
+        <Motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
@@ -528,7 +573,7 @@ const AdminDashboard = ({ onClose }) => {
                       <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest opacity-80">Total Faturado</span>
                     </div>
                     <p className="text-2xl sm:text-3xl font-black">
-                      {revenueLoading ? '...' : `R$ ${revenueData.reduce((sum, a) => sum + (Number(a.valor_cobrado) || 0), 0).toFixed(2).replace('.', ',')}`}
+                      {revenueLoading ? '...' : `R$ ${revenueSummary.total.toFixed(2).replace('.', ',')}`}
                     </p>
                   </div>
                   <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-100">
@@ -537,7 +582,7 @@ const AdminDashboard = ({ onClose }) => {
                       <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-gray-400">Total de Agendamentos</span>
                     </div>
                     <p className="text-2xl sm:text-3xl font-black text-gray-900">
-                      {revenueLoading ? '...' : revenueData.length}
+                      {revenueLoading ? '...' : revenueSummary.count}
                     </p>
                   </div>
                   <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-100">
@@ -546,7 +591,7 @@ const AdminDashboard = ({ onClose }) => {
                       <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-gray-400">Média por Agendamento</span>
                     </div>
                     <p className="text-2xl sm:text-3xl font-black text-gray-900">
-                      {revenueLoading ? '...' : `R$ ${revenueData.length > 0 ? (revenueData.reduce((sum, a) => sum + (Number(a.valor_cobrado) || 0), 0) / revenueData.length).toFixed(2).replace('.', ',') : '0,00'}`}
+                      {revenueLoading ? '...' : `R$ ${revenueSummary.average.toFixed(2).replace('.', ',')}`}
                     </p>
                   </div>
                 </div>
@@ -560,16 +605,7 @@ const AdminDashboard = ({ onClose }) => {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {professionals
-                        .map(p => ({
-                          ...p,
-                          total: revenueData
-                            .filter(a => a.profissional_id === p.id)
-                            .reduce((sum, a) => sum + (Number(a.valor_cobrado) || 0), 0),
-                          count: revenueData.filter(a => a.profissional_id === p.id).length
-                        }))
-                        .filter(p => selectedProfessional ? p.id === selectedProfessional : p.count > 0)
-                        .sort((a, b) => b.total - a.total)
+                      {revenueByProfessional
                         .map(p => {
                           const percentual = p.percentual_salao != null ? p.percentual_salao : 0;
                           const desconto = p.total * (percentual / 100);
@@ -641,13 +677,13 @@ const AdminDashboard = ({ onClose }) => {
           {/* Add/Edit Service Modal */}
           <AnimatePresence>
             {(showAddService || editingService) && (
-              <motion.div
+              <Motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
               >
-                <motion.div
+                <Motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
@@ -693,21 +729,21 @@ const AdminDashboard = ({ onClose }) => {
                       {editingService ? 'Salvar' : 'Adicionar'}
                     </button>
                   </div>
-                </motion.div>
-              </motion.div>
+                </Motion.div>
+              </Motion.div>
             )}
           </AnimatePresence>
 
           {/* Add/Edit Professional Modal */}
           <AnimatePresence>
             {(showAddProfessional || editingProfessional) && (
-              <motion.div
+              <Motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
               >
-                <motion.div
+                <Motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
@@ -722,13 +758,12 @@ const AdminDashboard = ({ onClose }) => {
                       onChange={(e) => setProfessionalForm(prev => ({ ...prev, nome: e.target.value }))}
                       className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
                     />
-                    <input
-                      type="email"
-                      placeholder="E-mail de acesso"
-                      value={professionalForm.email}
-                      onChange={(e) => setProfessionalForm(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
-                    />
+                    {!editingProfessional && professionalForm.nome && (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-lavender-50 rounded-xl border border-lavender-100">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-lavender-400">Login</span>
+                        <span className="text-xs font-bold text-lavender-700 truncate">{generateEmail(professionalForm.nome)}</span>
+                      </div>
+                    )}
                     {!editingProfessional && (
                       <input
                         type="password"
@@ -775,12 +810,12 @@ const AdminDashboard = ({ onClose }) => {
                       {editingProfessional ? 'Salvar' : 'Adicionar'}
                     </button>
                   </div>
-                </motion.div>
-              </motion.div>
+                </Motion.div>
+              </Motion.div>
             )}
           </AnimatePresence>
-        </motion.div>
-      </motion.div>
+        </Motion.div>
+      </Motion.div>
     </AnimatePresence>
   );
 };
