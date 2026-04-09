@@ -48,7 +48,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
       setProfessionalsLoading(true);
 
       const [servicesRes, professionalsRes] = await Promise.all([
-        supabase.from('servicos').select('*').order('categoria'),
+        supabase.from('servicos').select('*').order('descricao'),
         supabase.from('profissionais').select('id, nome').order('nome')
       ]);
 

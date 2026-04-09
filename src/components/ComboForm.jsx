@@ -263,7 +263,7 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
 
   useEffect(() => {
     Promise.all([
-      supabase.from('servicos').select('*').order('categoria'),
+      supabase.from('servicos').select('*').order('descricao'),
       supabase.from('profissionais').select('id, nome').order('nome'),
     ]).then(([s, p]) => {
       setServices(s.data || []);

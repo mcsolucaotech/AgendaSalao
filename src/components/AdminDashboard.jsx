@@ -22,7 +22,6 @@ const AdminDashboard = ({ onClose }) => {
   // Form states
   const [serviceForm, setServiceForm] = useState({
     descricao: '',
-    categoria: '',
     preco: ''
   });
   const [serviceError, setServiceError] = useState('');
@@ -52,7 +51,7 @@ const AdminDashboard = ({ onClose }) => {
     setLoading(true);
     try {
       const [servicesRes, professionalsRes] = await Promise.all([
-        supabase.from('servicos').select('*').order('categoria'),
+        supabase.from('servicos').select('*').order('descricao'),
         supabase.from('profissionais').select('*').order('nome')
       ]);
 
@@ -115,7 +114,7 @@ const AdminDashboard = ({ onClose }) => {
   const handleAddService = async () => {
     setServiceError('');
     
-    if (!serviceForm.descricao || !serviceForm.categoria || !serviceForm.preco) {
+    if (!serviceForm.descricao || !serviceForm.preco) {
       setServiceError('Preencha todos os campos');
       return;
     }
@@ -131,7 +130,6 @@ const AdminDashboard = ({ onClose }) => {
         .from('servicos')
         .insert([{
           descricao: serviceForm.descricao,
-          categoria: serviceForm.categoria,
           preco: precoValue
         }]);
 
@@ -141,7 +139,7 @@ const AdminDashboard = ({ onClose }) => {
         return;
       }
 
-      setServiceForm({ descricao: '', categoria: '', preco: '' });
+      setServiceForm({ descricao: '', preco: '' });
       setShowAddService(false);
       loadData();
     } catch (error) {
@@ -153,7 +151,7 @@ const AdminDashboard = ({ onClose }) => {
   const handleEditService = async () => {
     setServiceError('');
     
-    if (!editingService || !serviceForm.descricao || !serviceForm.categoria || !serviceForm.preco) {
+    if (!editingService || !serviceForm.descricao || !serviceForm.preco) {
       setServiceError('Preencha todos os campos');
       return;
     }
@@ -169,7 +167,6 @@ const AdminDashboard = ({ onClose }) => {
         .from('servicos')
         .update({
           descricao: serviceForm.descricao,
-          categoria: serviceForm.categoria,
           preco: precoValue
         })
         .eq('id', editingService.id);
@@ -181,7 +178,7 @@ const AdminDashboard = ({ onClose }) => {
       }
 
       setEditingService(null);
-      setServiceForm({ descricao: '', categoria: '', preco: '' });
+      setServiceForm({ descricao: '', preco: '' });
       setShowAddService(false);
       loadData();
     } catch (error) {
@@ -301,7 +298,6 @@ const AdminDashboard = ({ onClose }) => {
     setEditingService(service);
     setServiceForm({
       descricao: service.descricao,
-      categoria: service.categoria,
       preco: service.preco.toString()
     });
   };
@@ -406,7 +402,7 @@ const AdminDashboard = ({ onClose }) => {
                     <div key={service.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 bg-gray-50 rounded-lg sm:rounded-2xl gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-gray-900 text-sm sm:text-base truncate">{service.descricao}</p>
-                        <p className="text-xs sm:text-sm text-gray-500">{service.categoria} • R$ {service.preco.toFixed(2)}</p>
+                        <p className="text-xs sm:text-sm text-gray-500">R$ {service.preco.toFixed(2)}</p>
                       </div>
                       <div className="flex gap-2 self-end sm:self-auto">
                         {confirmDelete?.type === 'service' && confirmDelete?.id === service.id ? (
@@ -667,13 +663,6 @@ const AdminDashboard = ({ onClose }) => {
                       className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
                     />
                     <input
-                      type="text"
-                      placeholder="Categoria"
-                      value={serviceForm.categoria}
-                      onChange={(e) => setServiceForm(prev => ({ ...prev, categoria: e.target.value }))}
-                      className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
-                    />
-                    <input
                       type="number"
                       step="0.01"
                       placeholder="Preço"
@@ -691,7 +680,7 @@ const AdminDashboard = ({ onClose }) => {
                         setServiceError('');
                         setShowAddService(false);
                         setEditingService(null);
-                        setServiceForm({ descricao: '', categoria: '', preco: '' });
+                        setServiceForm({ descricao: '', preco: '' });
                       }}
                       className="flex-1 py-3 sm:py-4 bg-gray-100 text-gray-600 rounded-lg sm:rounded-2xl font-bold hover:bg-gray-200 transition-colors text-sm sm:text-base"
                     >
