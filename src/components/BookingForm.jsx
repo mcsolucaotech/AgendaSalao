@@ -117,7 +117,11 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
   // ---------------------------------------------------------------------------
   useEffect(() => {
     const fetchSlots = async () => {
-      if (!selectedDate || !formData.profissional_id) return;
+      if (!selectedDate || !formData.profissional_id) {
+        setAvailableSlots([]);
+        setSlotsLoading(false);
+        return;
+      }
       setSlotsLoading(true);
       setAvailableSlots([]);
 
@@ -160,6 +164,18 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
 
     fetchSlots();
   }, [selectedDate, formData.profissional_id, isEditing, initialData?.id]);
+
+  const getSlotsEmptyMessage = () => {
+    if (!formData.profissional_id) {
+      return 'Selecione uma profissional para ver os horários.';
+    }
+    const dayEnd = new Date(selectedDate);
+    dayEnd.setHours(19, 0, 0, 0);
+    if (selectedDate.toDateString() === new Date().toDateString() && new Date() > dayEnd) {
+      return 'Não há mais horários futuros para hoje. Selecione outra data.';
+    }
+    return 'Não há horários disponíveis para este dia.';
+  };
 
   // Ao trocar a profissional na edição, o horário escolhido pode passar a ser inválido
   useEffect(() => {
@@ -352,7 +368,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
         </div>
       ) : availableSlots.length === 0 ? (
         <div className="text-center py-8 sm:py-10 text-gray-400 font-bold text-sm">
-          Não há horários disponíveis para este dia.
+          {getSlotsEmptyMessage()}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
