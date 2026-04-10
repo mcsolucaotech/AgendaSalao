@@ -637,12 +637,12 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
   );
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-gray-900/40 backdrop-blur-md">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-gray-900/40 backdrop-blur-md">
       <Motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        className="bg-white w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl rounded-t-2xl sm:rounded-t-3xl md:rounded-[3rem] md:rounded-b-[3rem] shadow-2xl overflow-hidden max-h-[92vh] md:max-h-[90vh] flex flex-col relative"
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        className="bg-white w-full max-w-md sm:max-w-md md:max-w-lg lg:max-w-xl rounded-[2rem] sm:rounded-[2.5rem] md:rounded-[3rem] shadow-2xl overflow-hidden max-h-[96vh] md:max-h-[90vh] flex flex-col relative"
       >
         {/* Tela de sucesso */}
         {success && (
@@ -657,7 +657,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
           </div>
         )}
 
-        <div className="p-4 sm:p-6 md:p-8 lg:p-9 overflow-y-auto">
+        <div className="p-4 sm:p-6 md:p-8 lg:p-9 overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
           {/* Header do modal */}
           <div className="flex items-start sm:items-center justify-between gap-3 mb-6 sm:mb-8">
             <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">

@@ -24,16 +24,16 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onAddCombo, 
   );
 
   return (
-    <div className="space-y-4 pb-36 pt-2 px-2 sm:px-4 md:px-0">
+    <div className="space-y-4 pb-40 pt-1 px-1 sm:px-4 md:px-0">
       {/* Header */}
       <div className="flex flex-col gap-1">
         <span className="text-gray-400 text-[9px] font-black uppercase tracking-widest opacity-50">Programação do Dia</span>
         <span className="text-gray-400 text-[9px] font-bold uppercase tracking-wider opacity-70">Hoje: {todayLabel}</span>
-        <div className="flex items-center justify-between gap-3 mt-1">
-          <h3 className="text-base sm:text-lg font-black text-gray-900 font-display capitalize">
+        <div className="flex items-center justify-between gap-2 mt-1">
+          <h3 className="text-sm sm:text-lg font-black text-gray-900 font-display capitalize min-w-0">
             {format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
           </h3>
-          <div className="flex items-center gap-1.5 text-lavender-500 font-bold bg-lavender-50 px-3 py-1 rounded-full text-[9px] whitespace-nowrap">
+          <div className="flex items-center gap-1 text-lavender-500 font-bold bg-lavender-50 px-2.5 py-1 rounded-full text-[9px] whitespace-nowrap flex-shrink-0">
             <Clock className="w-3 h-3" />
             {dayAppointments.length} agendados
           </div>
@@ -56,12 +56,12 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onAddCombo, 
                 const a = group.item;
                 return (
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-stretch overflow-hidden">
-                    <div className="flex flex-col items-center justify-center bg-gray-50 w-14 py-3 flex-shrink-0">
+                    <div className="flex flex-col items-center justify-center bg-gray-50 w-12 sm:w-14 py-3 flex-shrink-0">
                       <span className="text-[8px] font-black uppercase text-gray-300">início</span>
-                      <span className="text-sm font-black text-gray-700 font-display">{format(parseISO(a.data_hora), 'HH:mm')}</span>
+                      <span className="text-xs sm:text-sm font-black text-gray-700 font-display">{format(parseISO(a.data_hora), 'HH:mm')}</span>
                     </div>
                     <div className="flex-1 min-w-0 px-3 py-3">
-                      <p className="font-black text-gray-900 text-base leading-tight truncate">{a.cliente_nome}</p>
+                      <p className="font-black text-gray-900 text-[15px] sm:text-base leading-tight truncate">{a.cliente_nome}</p>
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-lavender-50 text-[11px] text-lavender-700 font-black">
                           <Scissors className="w-3 h-3 text-lavender-500" />{a.servico}
@@ -78,7 +78,7 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onAddCombo, 
                     </div>
                     {onEdit && (
                       <button onClick={() => onEdit(a)}
-                        className="w-10 flex items-center justify-center text-gray-300 hover:text-lavender-600 hover:bg-lavender-50 transition-all flex-shrink-0">
+                        className="w-9 sm:w-10 flex items-center justify-center text-gray-300 hover:text-lavender-600 hover:bg-lavender-50 transition-all flex-shrink-0">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                     )}
@@ -89,10 +89,10 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onAddCombo, 
               {/* ── Combo ── */}
               {group.type === 'combo' && (
                 <div className="rounded-2xl overflow-hidden border-2 border-lavender-200">
-                  <div className="flex items-center gap-2 px-3 py-2 bg-lavender-600">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-lavender-600 flex-wrap">
                     <Package className="w-3.5 h-3.5 text-white" />
                     <span className="text-[10px] font-black uppercase tracking-widest text-white">Combo</span>
-                    <span className="text-sm text-white font-black ml-auto truncate max-w-[55%]">{group.items[0].cliente_nome}</span>
+                    <span className="text-sm text-white font-black ml-auto truncate max-w-[58%] sm:max-w-[55%]">{group.items[0].cliente_nome}</span>
                     <span className="text-[10px] font-black text-white bg-lavender-500 px-2 py-0.5 rounded-full">
                       {formatBRL(group.items.reduce((s, x) => s + (Number(x.valor_cobrado) || 0), 0))}
                     </span>
@@ -137,12 +137,12 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onAddCombo, 
       </div>
 
       {/* FABs */}
-      <div className="fixed right-4 sm:right-6 z-[60] flex flex-col items-end gap-2 bottom-[calc(6.75rem+env(safe-area-inset-bottom,0px))]">
+      <div className="fixed right-3 sm:right-6 z-[60] flex flex-col items-end gap-2 bottom-[calc(6.75rem+env(safe-area-inset-bottom,0px))]">
         <Motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
           onClick={() => onAddCombo?.()} type="button"
           className="bg-white text-lavender-600 border-2 border-lavender-200 px-3.5 py-2.5 rounded-2xl shadow-lg flex items-center gap-2 transition-all">
           <Package className="w-4 h-4" />
-          <span className="font-black text-[10px] uppercase tracking-wide">Combo</span>
+          <span className="font-black text-[10px] uppercase tracking-wide hidden sm:inline">Combo</span>
         </Motion.button>
         <Motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
           onClick={() => onAddBooking()} type="button"

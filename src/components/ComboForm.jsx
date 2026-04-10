@@ -204,7 +204,7 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
                       : 'Toque no horário (ou início do período)'}
                   </p>
 
-                  <div className="grid grid-cols-5 gap-1 max-h-36 overflow-y-auto pb-1">
+                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-1 max-h-36 overflow-y-auto pb-1">
                     {slots.map(slot => {
                       const t = slot.getTime();
                       const isStart  = startMs && t === startMs;
@@ -228,7 +228,7 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
                       );
                     })}
                     {slots.length === 0 && (
-                      <p className="col-span-5 text-[11px] text-gray-400 text-center py-2">Sem horários disponíveis</p>
+                      <p className="col-span-4 sm:col-span-5 text-[11px] text-gray-400 text-center py-2">Sem horários disponíveis</p>
                     )}
                   </div>
                 </Motion.div>
@@ -383,10 +383,12 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-gray-900/40 backdrop-blur-md">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-gray-900/40 backdrop-blur-md">
       <Motion.div
-        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-        className="bg-white w-full max-w-sm sm:max-w-md rounded-t-3xl sm:rounded-[2.5rem] shadow-2xl max-h-[92vh] flex flex-col relative overflow-hidden"
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        className="bg-white w-full max-w-md rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl max-h-[96vh] flex flex-col relative overflow-hidden"
       >
         {/* Sucesso */}
         {success && (
@@ -415,7 +417,7 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
         </div>
 
         {/* Conteúdo */}
-        <div className="overflow-y-auto flex-1 px-5 pb-5 space-y-3">
+        <div className="overflow-y-auto flex-1 px-4 sm:px-5 pb-[calc(1.1rem+env(safe-area-inset-bottom,0px))] space-y-3">
           {dataLoading ? (
             <div className="flex justify-center py-12">
               <div className="w-7 h-7 border-4 border-lavender-200 border-t-lavender-600 rounded-full animate-spin" />

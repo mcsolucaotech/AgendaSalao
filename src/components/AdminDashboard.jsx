@@ -23,6 +23,13 @@ import {
   MAX_NAME_LENGTH,
 } from '../lib/validation';
 
+const normalizePercentageInput = (rawValue) => {
+  const digits = String(rawValue || '').replace(/\D/g, '');
+  if (!digits) return '';
+  const numeric = Number(digits.slice(0, 3));
+  return String(Math.min(100, numeric));
+};
+
 const AdminDashboard = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState('services');
   const [services, setServices] = useState([]);
@@ -337,7 +344,9 @@ const AdminDashboard = ({ onClose }) => {
     setProfessionalForm({
       nome: professional.nome,
       senha: '',
-      percentual_salao: professional.percentual_salao != null ? professional.percentual_salao.toString() : ''
+      percentual_salao: professional.percentual_salao != null
+        ? normalizePercentageInput(professional.percentual_salao)
+        : ''
     });
   };
 
@@ -357,13 +366,13 @@ const AdminDashboard = ({ onClose }) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4"
       >
         <Motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-white rounded-2xl sm:rounded-3xl md:rounded-[3rem] w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-4xl max-h-[90vh] md:max-h-[85vh] overflow-hidden"
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 12 }}
+          className="bg-white rounded-[2rem] sm:rounded-3xl md:rounded-[3rem] w-full max-w-md sm:max-w-sm md:max-w-md lg:max-w-4xl max-h-[95vh] md:max-h-[85vh] overflow-hidden"
         >
           {/* Header */}
           <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
@@ -411,7 +420,7 @@ const AdminDashboard = ({ onClose }) => {
           </div>
 
           {/* Content */}
-          <div className="p-4 sm:p-6 max-h-[60vh] md:max-h-[65vh] overflow-y-auto">
+          <div className="p-4 sm:p-6 max-h-[72vh] sm:max-h-[60vh] md:max-h-[65vh] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
             {activeTab === 'services' && (
               <div className="space-y-4 sm:space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -758,16 +767,21 @@ const AdminDashboard = ({ onClose }) => {
                     )}
                     <div>
                       <label className="block text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Percentual do Salão (%)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.1"
-                        placeholder="Ex: 25"
-                        value={professionalForm.percentual_salao}
-                        onChange={(e) => setProfessionalForm(prev => ({ ...prev, percentual_salao: e.target.value }))}
-                        className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
-                      />
+                      <div className="relative">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          placeholder="Ex: 25"
+                          value={professionalForm.percentual_salao}
+                          onChange={(e) => setProfessionalForm((prev) => ({
+                            ...prev,
+                            percentual_salao: normalizePercentageInput(e.target.value),
+                          }))}
+                          className="w-full p-3 sm:p-4 pr-10 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-black text-sm">%</span>
+                      </div>
                       <p className="text-[10px] text-gray-400 mt-1">Percentual descontado do total arrecadado pelo profissional</p>
                     </div>
                     {professionalError && (

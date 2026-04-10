@@ -171,41 +171,54 @@ const MainApp = ({ onLogout }) => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FBFBFF] p-4 pb-32 max-w-xl mx-auto selection:bg-lavender-200">
+    <div className="min-h-screen bg-[#FBFBFF] p-3 sm:p-4 pb-[calc(8rem+env(safe-area-inset-bottom,0px))] max-w-xl mx-auto selection:bg-lavender-200">
       {/* Header */}
-      <header className="py-8 mb-4">
-        <div className="flex items-center justify-between mb-8 px-2">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="w-4 h-4 text-lavender-400" />
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Premium Management</div>
+      <header className="py-4 sm:py-8 mb-3 sm:mb-4">
+        <div className="mb-5 sm:mb-8 px-1 sm:px-2 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles className="w-4 h-4 text-lavender-400 flex-shrink-0" />
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 truncate">Premium Management</div>
             </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <ThemeSwitcher />
+              {isAdmin && (
+                <button
+                  onClick={() => setShowAdminDashboard(true)}
+                  className="w-11 h-11 sm:w-12 sm:h-12 glass flex items-center justify-center text-gray-400 hover:text-lavender-600 rounded-2xl transition-all active:scale-90"
+                  title="Dashboard Administrativo"
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
+              )}
+              <button
+                onClick={onLogout}
+                className="w-11 h-11 sm:w-12 sm:h-12 glass flex items-center justify-center text-gray-400 hover:text-red-500 rounded-2xl transition-all active:scale-90"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col min-w-0">
             <h1 className="leading-none">
-              <AppLogo className="text-4xl" />
+              <AppLogo className="text-3xl sm:text-4xl" />
             </h1>
             {userName && (
-              <p className="text-xs text-gray-400 font-bold mt-1">
-                Olá, <span className="text-lavender-600">{userName}</span>
-              </p>
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] sm:text-xs text-gray-400 font-semibold">Logado:</span>
+                <span
+                  className="inline-flex items-center rounded-full px-2.5 py-1 text-xs sm:text-sm font-black border max-w-full truncate"
+                  style={{
+                    color: 'var(--accent-main)',
+                    background: 'color-mix(in srgb, var(--accent-main) 14%, var(--bg-card))',
+                    borderColor: 'color-mix(in srgb, var(--accent-main) 42%, var(--border-main))',
+                  }}
+                >
+                  {userName}
+                </span>
+              </div>
             )}
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeSwitcher />
-            {isAdmin && (
-              <button
-                onClick={() => setShowAdminDashboard(true)}
-                className="w-12 h-12 glass flex items-center justify-center text-gray-400 hover:text-lavender-600 rounded-2xl transition-all active:scale-90"
-                title="Dashboard Administrativo"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-            )}
-            <button
-              onClick={onLogout}
-              className="w-12 h-12 glass flex items-center justify-center text-gray-400 hover:text-red-500 rounded-2xl transition-all active:scale-90"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
           </div>
         </div>
 
@@ -216,45 +229,39 @@ const MainApp = ({ onLogout }) => {
             animate={{ opacity: 1, y: 0 }}
             className="glass px-4 py-3 rounded-[2rem] border-lavender-100"
           >
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em] mr-1">
-                <Users className="w-3 h-3 inline mr-1 mb-0.5" />
-                Filtrar
-              </span>
+            <div className="space-y-2">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 px-1">
+                Profissional
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedProfessionalId(null)}
+                  className={`px-4 py-2 rounded-2xl font-black text-sm transition-all border-2 whitespace-nowrap ${
+                    selectedProfessionalId === null
+                      ? 'border-lavender-500 bg-lavender-600 text-white shadow-md shadow-lavender-200'
+                      : 'border-gray-200 bg-white text-gray-500 hover:border-lavender-200'
+                  }`}
+                >
+                  Todas
+                </button>
 
-              {/* Todos */}
-              <button
-                onClick={() => setSelectedProfessionalId(null)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border transition-all text-xs font-bold ${
-                  selectedProfessionalId === null
-                    ? 'border-lavender-500 bg-lavender-600 text-white shadow-md shadow-lavender-200'
-                    : 'border-gray-100 bg-white text-gray-500 hover:border-lavender-200'
-                }`}
-              >
-                <Users className="w-3 h-3 flex-shrink-0" />
-                Todos
-              </button>
-
-              {professionals.map((p) => {
-                const initials = p.nome.split(' ').slice(0, 2).map((part) => part[0]).join('');
-                const isSelected = selectedProfessionalId === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => setSelectedProfessionalId(p.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border transition-all text-xs font-bold ${
-                      isSelected
-                        ? 'border-lavender-500 bg-lavender-600 text-white shadow-md shadow-lavender-200'
-                        : 'border-gray-100 bg-white text-gray-500 hover:border-lavender-200'
-                    }`}
-                  >
-                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0 ${isSelected ? 'bg-white/20' : 'bg-gray-100'}`}>
-                      {initials}
-                    </span>
-                    {p.nome.split(' ')[0]}
-                  </button>
-                );
-              })}
+                {professionals.map((p) => {
+                  const isSelected = selectedProfessionalId === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelectedProfessionalId(p.id)}
+                      className={`px-4 py-2 rounded-2xl font-bold text-sm transition-all border-2 whitespace-nowrap ${
+                        isSelected
+                          ? 'border-lavender-500 bg-lavender-600 text-white shadow-md shadow-lavender-200'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-lavender-200'
+                      }`}
+                    >
+                      {p.nome.split(' ')[0]}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </Motion.div>
         )}
@@ -303,17 +310,20 @@ const MainApp = ({ onLogout }) => {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm glass rounded-[2.5rem] p-2 flex items-center justify-between border-lavender-100 shadow-2xl z-50">
+      <nav
+        className="fixed bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 w-[94%] max-w-sm glass rounded-[2.5rem] px-2 pt-2 flex items-center justify-between border-lavender-100 shadow-2xl z-50"
+        style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))' }}
+      >
         <button
           onClick={() => setView('calendar')}
-          className={`flex-1 flex flex-col items-center py-3 rounded-[2rem] transition-all gap-1 ${view === 'calendar' ? 'bg-gray-900 text-white shadow-xl' : 'text-gray-400 hover:text-lavender-600'}`}
+          className={`flex-1 flex flex-col items-center py-2.5 sm:py-3 rounded-[2rem] transition-all gap-1 ${view === 'calendar' ? 'bg-gray-900 text-white shadow-xl' : 'text-gray-400 hover:text-lavender-600'}`}
         >
           <CalendarIcon className="w-5 h-5" />
           <span className="text-[10px] font-black uppercase tracking-widest">Início</span>
         </button>
         <button
           onClick={() => setView('manager')}
-          className={`flex-1 flex flex-col items-center py-3 rounded-[2rem] transition-all gap-1 ${view === 'manager' ? 'bg-gray-900 text-white shadow-xl' : 'text-gray-400 hover:text-lavender-600'}`}
+          className={`flex-1 flex flex-col items-center py-2.5 sm:py-3 rounded-[2rem] transition-all gap-1 ${view === 'manager' ? 'bg-gray-900 text-white shadow-xl' : 'text-gray-400 hover:text-lavender-600'}`}
         >
           <ClipboardList className="w-5 h-5" />
           <span className="text-[10px] font-black uppercase tracking-widest">Agenda</span>

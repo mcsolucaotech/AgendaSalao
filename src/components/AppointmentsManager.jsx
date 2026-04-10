@@ -53,14 +53,14 @@ const AppointmentsManager = ({ onEdit }) => {
   );
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-2 sm:px-4 md:px-0">
+    <div className="space-y-4 sm:space-y-6 px-1 sm:px-4 md:px-0">
       {/* Busca e filtros */}
       <div className="space-y-3 sm:space-y-4">
         <div className="relative group">
           <Search className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 w-4 sm:w-5 h-4 sm:h-5 text-gray-400 group-focus-within:text-lavender-500 transition-colors flex-shrink-0" />
           <input
             type="text"
-            placeholder="Buscar por cliente, serviço ou funcionária..."
+            placeholder="Buscar cliente, serviço ou profissional..."
             className="w-full pl-11 sm:pl-14 pr-4 sm:pr-6 py-3 sm:py-4 md:py-5 glass rounded-lg sm:rounded-2xl border-lavender-100 focus:ring-2 focus:ring-lavender-500 outline-none font-bold text-gray-900 transition-all shadow-sm text-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -148,7 +148,7 @@ const AppointmentsManager = ({ onEdit }) => {
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden relative">
                       <div className="flex items-stretch">
                         {/* Faixa horário */}
-                        <div className="flex flex-col items-center justify-center bg-gray-50 w-16 py-4 flex-shrink-0 border-r border-gray-100">
+                        <div className="flex flex-col items-center justify-center bg-gray-50 w-14 sm:w-16 py-4 flex-shrink-0 border-r border-gray-100">
                           <span className="text-[8px] font-black uppercase text-gray-300">início</span>
                           <span className="text-sm font-black text-gray-700 font-display">{format(parseISO(a.data_hora), 'HH:mm')}</span>
                           <span className="text-[9px] text-gray-400 mt-0.5">{format(parseISO(a.data_hora), 'dd/MM', { locale: ptBR })}</span>
@@ -159,11 +159,11 @@ const AppointmentsManager = ({ onEdit }) => {
                             <div className="min-w-0">
                               <p className="font-black text-gray-900 text-base leading-tight truncate">{a.cliente_nome}</p>
                               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-lavender-50 text-[11px] text-lavender-700 font-black">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-lavender-50 text-[10px] sm:text-[11px] text-lavender-700 font-black">
                                   <Scissors className="w-3 h-3 text-lavender-500" />{a.servico}
                                 </span>
                                 {a.profissionais?.nome && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[11px] text-gray-600 font-black">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[10px] sm:text-[11px] text-gray-600 font-black">
                                     <User className="w-3 h-3 text-lavender-400" />{a.profissionais.nome}
                                   </span>
                                 )}
@@ -221,12 +221,12 @@ const AppointmentsManager = ({ onEdit }) => {
                 {group.type === 'combo' && (
                   <div className="rounded-2xl overflow-hidden border-2 border-lavender-200">
                     {/* Header do combo */}
-                    <div className="flex items-center gap-2 px-3 py-2.5 bg-lavender-600">
+                    <div className="flex items-center gap-2 px-3 py-2.5 bg-lavender-600 flex-wrap">
                       <Package className="w-3.5 h-3.5 text-white flex-shrink-0" />
                       <span className="text-[10px] font-black uppercase tracking-widest text-white">Combo</span>
-                      <span className="text-sm text-white font-black truncate flex-1">{group.items[0].cliente_nome}</span>
+                      <span className="text-sm text-white font-black truncate flex-1 min-w-[8rem]">{group.items[0].cliente_nome}</span>
                       {group.items[0].cliente_telefone && (
-                        <span className="text-[10px] text-lavender-300 flex-shrink-0">{group.items[0].cliente_telefone}</span>
+                        <span className="text-[10px] text-lavender-300 flex-shrink-0 hidden sm:inline">{group.items[0].cliente_telefone}</span>
                       )}
                       <span className="text-[10px] font-black text-white bg-lavender-500 px-2 py-0.5 rounded-full flex-shrink-0">
                         {formatBRL(group.items.reduce((s, x) => s + (Number(x.valor_cobrado) || 0), 0))}
@@ -236,17 +236,17 @@ const AppointmentsManager = ({ onEdit }) => {
                     <div className="divide-y divide-lavender-100 bg-white">
                       {group.items.map((a) => (
                         <div key={a.id} className="flex items-center gap-0">
-                          <div className="flex flex-col items-center justify-center w-14 self-stretch py-3 bg-lavender-50 flex-shrink-0">
+                          <div className="flex flex-col items-center justify-center w-12 sm:w-14 self-stretch py-3 bg-lavender-50 flex-shrink-0">
                             <span className="text-[8px] font-black text-lavender-300 uppercase">início</span>
                             <span className="text-xs font-black text-lavender-700">{format(parseISO(a.data_hora), 'HH:mm')}</span>
                           </div>
                           <div className="flex-1 min-w-0 px-3 py-2.5">
                           <div className="flex items-center gap-2 flex-wrap">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-lavender-50 text-[11px] font-black text-lavender-700">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-lavender-50 text-[10px] sm:text-[11px] font-black text-lavender-700">
                                 <Scissors className="w-3 h-3 text-lavender-500" />{a.servico}
                               </span>
                               {a.profissionais?.nome && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[11px] text-gray-600 font-black">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[10px] sm:text-[11px] text-gray-600 font-black">
                                   <User className="w-3 h-3 text-lavender-400" />{a.profissionais.nome}
                                 </span>
                               )}
@@ -255,9 +255,9 @@ const AppointmentsManager = ({ onEdit }) => {
                               <span className="text-[9px] text-lavender-400 font-bold">{a.observacoes}</span>
                             )}
                           </div>
-                          <span className="text-xs font-black text-lavender-600 pr-3 flex-shrink-0">{formatBRL(a.valor_cobrado)}</span>
+                          <span className="text-[11px] sm:text-xs font-black text-lavender-600 pr-2 sm:pr-3 flex-shrink-0">{formatBRL(a.valor_cobrado)}</span>
                           <button onClick={() => onEdit(a)}
-                            className="w-10 self-stretch flex items-center justify-center text-lavender-300 hover:text-lavender-600 hover:bg-lavender-50 transition-all border-l border-lavender-100 flex-shrink-0">
+                            className="w-9 sm:w-10 self-stretch flex items-center justify-center text-lavender-300 hover:text-lavender-600 hover:bg-lavender-50 transition-all border-l border-lavender-100 flex-shrink-0">
                             <Edit2 className="w-3 h-3" />
                           </button>
                         </div>
