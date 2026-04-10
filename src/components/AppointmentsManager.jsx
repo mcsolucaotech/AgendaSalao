@@ -52,14 +52,6 @@ const AppointmentsManager = ({ onEdit }) => {
     [filtered]
   );
 
-  // ---- Status badge color ----
-  const statusColor = {
-    Confirmado: 'bg-green-50 text-green-600',
-    Pendente: 'bg-yellow-50 text-yellow-600',
-    Cancelado: 'bg-red-50 text-red-400',
-    Finalizado: 'bg-gray-100 text-gray-400',
-  };
-
   return (
     <div className="space-y-4 sm:space-y-6 px-2 sm:px-4 md:px-0">
       {/* Busca e filtros */}
@@ -165,14 +157,14 @@ const AppointmentsManager = ({ onEdit }) => {
                         <div className="flex-1 min-w-0 px-4 py-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="font-black text-gray-900 text-sm truncate">{a.cliente_nome}</p>
-                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                <span className="flex items-center gap-1 text-[10px] text-gray-400 font-bold">
-                                  <Scissors className="w-2.5 h-2.5 text-lavender-400" />{a.servico}
+                              <p className="font-black text-gray-900 text-base leading-tight truncate">{a.cliente_nome}</p>
+                              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-lavender-50 text-[11px] text-lavender-700 font-black">
+                                  <Scissors className="w-3 h-3 text-lavender-500" />{a.servico}
                                 </span>
                                 {a.profissionais?.nome && (
-                                  <span className="flex items-center gap-1 text-[10px] text-gray-400 font-bold">
-                                    <User className="w-2.5 h-2.5 text-lavender-300" />{a.profissionais.nome}
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[11px] text-gray-600 font-black">
+                                    <User className="w-3 h-3 text-lavender-400" />{a.profissionais.nome}
                                   </span>
                                 )}
                                 {a.cliente_telefone && (
@@ -186,11 +178,6 @@ const AppointmentsManager = ({ onEdit }) => {
                             <div className="flex flex-col items-end gap-1 flex-shrink-0">
                               {a.valor_cobrado != null && (
                                 <span className="text-xs font-black text-lavender-600">{formatBRL(a.valor_cobrado)}</span>
-                              )}
-                              {a.status && (
-                                <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${statusColor[a.status] || 'bg-gray-100 text-gray-400'}`}>
-                                  {a.status}
-                                </span>
                               )}
                             </div>
                           </div>
@@ -237,7 +224,7 @@ const AppointmentsManager = ({ onEdit }) => {
                     <div className="flex items-center gap-2 px-3 py-2.5 bg-lavender-600">
                       <Package className="w-3.5 h-3.5 text-white flex-shrink-0" />
                       <span className="text-[10px] font-black uppercase tracking-widest text-white">Combo</span>
-                      <span className="text-[10px] text-lavender-200 font-bold truncate flex-1">{group.items[0].cliente_nome}</span>
+                      <span className="text-sm text-white font-black truncate flex-1">{group.items[0].cliente_nome}</span>
                       {group.items[0].cliente_telefone && (
                         <span className="text-[10px] text-lavender-300 flex-shrink-0">{group.items[0].cliente_telefone}</span>
                       )}
@@ -254,13 +241,13 @@ const AppointmentsManager = ({ onEdit }) => {
                             <span className="text-xs font-black text-lavender-700">{format(parseISO(a.data_hora), 'HH:mm')}</span>
                           </div>
                           <div className="flex-1 min-w-0 px-3 py-2.5">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="flex items-center gap-1 text-[10px] font-black text-gray-700">
-                                <Scissors className="w-2.5 h-2.5 text-lavender-400" />{a.servico}
+                          <div className="flex items-center gap-2 flex-wrap">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-lavender-50 text-[11px] font-black text-lavender-700">
+                                <Scissors className="w-3 h-3 text-lavender-500" />{a.servico}
                               </span>
                               {a.profissionais?.nome && (
-                                <span className="flex items-center gap-1 text-[10px] text-gray-400 font-bold">
-                                  <User className="w-2.5 h-2.5 text-lavender-300" />{a.profissionais.nome}
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[11px] text-gray-600 font-black">
+                                  <User className="w-3 h-3 text-lavender-400" />{a.profissionais.nome}
                                 </span>
                               )}
                             </div>

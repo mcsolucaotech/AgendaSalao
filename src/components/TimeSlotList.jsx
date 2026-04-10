@@ -61,14 +61,14 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onAddCombo, 
                       <span className="text-sm font-black text-gray-700 font-display">{format(parseISO(a.data_hora), 'HH:mm')}</span>
                     </div>
                     <div className="flex-1 min-w-0 px-3 py-3">
-                      <p className="font-black text-gray-900 text-sm truncate">{a.cliente_nome}</p>
-                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                        <span className="flex items-center gap-1 text-[10px] text-gray-400 font-bold">
-                          <Scissors className="w-2.5 h-2.5 text-lavender-400" />{a.servico}
+                      <p className="font-black text-gray-900 text-base leading-tight truncate">{a.cliente_nome}</p>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-lavender-50 text-[11px] text-lavender-700 font-black">
+                          <Scissors className="w-3 h-3 text-lavender-500" />{a.servico}
                         </span>
                         {a.profissionais?.nome && (
-                          <span className="flex items-center gap-1 text-[10px] text-gray-400 font-bold">
-                            <User className="w-2.5 h-2.5 text-lavender-300" />{a.profissionais.nome}
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[11px] text-gray-600 font-black">
+                            <User className="w-3 h-3 text-lavender-400" />{a.profissionais.nome}
                           </span>
                         )}
                       </div>
@@ -92,7 +92,7 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onAddCombo, 
                   <div className="flex items-center gap-2 px-3 py-2 bg-lavender-600">
                     <Package className="w-3.5 h-3.5 text-white" />
                     <span className="text-[10px] font-black uppercase tracking-widest text-white">Combo</span>
-                    <span className="text-[10px] text-lavender-200 font-bold ml-auto">{group.items[0].cliente_nome}</span>
+                    <span className="text-sm text-white font-black ml-auto truncate max-w-[55%]">{group.items[0].cliente_nome}</span>
                     <span className="text-[10px] font-black text-white bg-lavender-500 px-2 py-0.5 rounded-full">
                       {formatBRL(group.items.reduce((s, x) => s + (Number(x.valor_cobrado) || 0), 0))}
                     </span>
@@ -106,12 +106,12 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onAddCombo, 
                         </div>
                         <div className="flex-1 min-w-0 px-3 py-2.5">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="flex items-center gap-1 text-[10px] font-black text-gray-700">
-                              <Scissors className="w-2.5 h-2.5 text-lavender-400" />{a.servico}
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-lavender-50 text-[11px] font-black text-lavender-700">
+                              <Scissors className="w-3 h-3 text-lavender-500" />{a.servico}
                             </span>
                             {a.profissionais?.nome && (
-                              <span className="flex items-center gap-1 text-[10px] text-gray-400 font-bold">
-                                <User className="w-2.5 h-2.5 text-lavender-300" />{a.profissionais.nome}
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[11px] text-gray-600 font-black">
+                                <User className="w-3 h-3 text-lavender-400" />{a.profissionais.nome}
                               </span>
                             )}
                           </div>

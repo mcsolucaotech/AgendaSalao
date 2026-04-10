@@ -8,6 +8,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { formatBRL } from '../lib/money';
+import { buildOccupiedSlotSet } from '../lib/scheduling';
 import {
   formatCurrencyFromNumber,
   formatCurrencyMask,
@@ -132,15 +133,15 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
 
       const { data, error } = await supabase
         .from('agendamentos')
-        .select('id, data_hora')
+        .select('id, data_hora, observacoes')
         .eq('profissional_id', formData.profissional_id)
         .gte('data_hora', start.toISOString())
         .lte('data_hora', end.toISOString());
 
       // Ao editar, remove só o próprio registro dos ocupados (por id)
-      const occupied = new Set((data || [])
-        .filter((d) => !isEditing || d.id !== initialData?.id)
-        .map((d) => parseISO(d.data_hora).getTime()));
+      const occupied = buildOccupiedSlotSet(data || [], {
+        excludeIds: isEditing ? [initialData?.id] : [],
+      });
 
       const slots = [];
       let current = new Date(selectedDate);
@@ -233,18 +234,16 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
     setLoading(true);
     setSubmitError(null);
 
-    let conflictQuery = supabase
+    const slotDate = parseISO(formData.data_hora);
+    const slotStart = startOfDay(slotDate);
+    const slotEnd = endOfDay(slotDate);
+
+    const { data: sameDayRows, error: conflictErr } = await supabase
       .from('agendamentos')
-      .select('id')
+      .select('id, data_hora, observacoes')
       .eq('profissional_id', formData.profissional_id)
-      .eq('data_hora', formData.data_hora)
-      .limit(1);
-
-    if (isEditing) {
-      conflictQuery = conflictQuery.neq('id', initialData.id);
-    }
-
-    const { data: conflictRows, error: conflictErr } = await conflictQuery;
+      .gte('data_hora', slotStart.toISOString())
+      .lte('data_hora', slotEnd.toISOString());
 
     if (conflictErr) {
       setSubmitError('Não foi possível verificar disponibilidade. Tente de novo.');
@@ -252,7 +251,11 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
       return;
     }
 
-    if (conflictRows?.length > 0) {
+    const occupiedByRange = buildOccupiedSlotSet(sameDayRows || [], {
+      excludeIds: isEditing ? [initialData?.id] : [],
+    });
+
+    if (occupiedByRange.has(slotDate.getTime())) {
       setSubmitError(
         'Esta profissional já tem agendamento neste horário. Escolha outro horário ou outra funcionária — o mesmo horário pode ser usado por outras funcionárias.'
       );
@@ -338,11 +341,17 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
             }}
             className={`
               w-full p-3 sm:p-4 rounded-lg sm:rounded-2xl md:rounded-3xl border-2 transition-all flex items-center justify-between group
-              ${formData.servico === s.descricao ? 'border-lavender-600 bg-lavender-50' : 'border-gray-100 hover:border-lavender-200 bg-white'}
+              ${formData.servico === s.descricao
+                ? 'border-lavender-500 bg-lavender-50 shadow-[0_10px_22px_rgba(124,58,237,0.22)]'
+                : 'border-[var(--border-main)] bg-[var(--bg-card)] hover:border-lavender-300'}
             `}
           >
             <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-              <div className={`p-2 sm:p-3 rounded-lg sm:rounded-2xl transition-colors flex-shrink-0 ${formData.servico === s.descricao ? 'bg-lavender-600 text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-lavender-100'}`}>
+              <div className={`p-2 sm:p-3 rounded-lg sm:rounded-2xl transition-colors flex-shrink-0 ${
+                formData.servico === s.descricao
+                  ? 'bg-lavender-600 text-white'
+                  : 'bg-[var(--bg-surface)] text-[var(--text-muted)] group-hover:bg-lavender-100'
+              }`}>
                 <div className="w-4 h-4 sm:w-5 sm:h-5">
                   {getServiceIcon(s.categoria)}
                 </div>
@@ -385,10 +394,10 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
                 ref={isSlotSelected ? selectedSlotRef : null}
                 onClick={() => { setFormData(f => ({ ...f, data_hora: slot.toISOString() })); setStep(needsProfessionalStep ? 4 : 3); }}
                 className={`
-                  relative py-3 sm:py-4 rounded-lg sm:rounded-2xl font-black text-xs sm:text-sm transition-all
+                  relative py-3 sm:py-4 rounded-lg sm:rounded-2xl font-black text-xs sm:text-sm transition-all border
                   ${isSlotSelected
-                    ? 'bg-lavender-600 text-white shadow-xl shadow-lavender-200 ring-2 ring-lavender-400 ring-offset-1'
-                    : 'bg-gray-50 text-gray-500 hover:bg-lavender-50'}
+                    ? 'bg-lavender-600 text-white shadow-xl shadow-lavender-200 border-lavender-500 ring-2 ring-lavender-400 ring-offset-1'
+                    : 'bg-[var(--bg-surface)] border-[var(--border-main)] text-[var(--text-muted)] hover:bg-[var(--bg-elevated,var(--bg-surface))] hover:text-[var(--text-main)]'}
                 `}
               >
                 {format(slot, 'HH:mm')}
@@ -516,8 +525,8 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
                   onClick={() => setFormData(f => ({ ...f, profissional_id: prof.id }))}
                   className={`w-full text-left p-3 sm:p-4 rounded-lg sm:rounded-2xl border-2 font-bold transition-all text-sm ${
                     formData.profissional_id === prof.id
-                      ? 'border-lavender-600 bg-lavender-50 text-gray-900'
-                      : 'border-gray-100 bg-white text-gray-600 hover:border-lavender-200'
+                      ? 'border-lavender-500 bg-lavender-50 text-gray-900 shadow-[0_10px_22px_rgba(124,58,237,0.22)]'
+                      : 'border-[var(--border-main)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:border-lavender-300 hover:text-[var(--text-main)]'
                   }`}
                 >
                   {prof.nome}
@@ -609,11 +618,15 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
             className={`
               w-full p-3 sm:p-4 rounded-lg sm:rounded-2xl border-2 transition-all flex items-center gap-4
               ${formData.profissional_id === prof.id
-                ? 'border-lavender-600 bg-lavender-50'
-                : 'border-gray-100 bg-white hover:border-lavender-200'}
+                ? 'border-lavender-500 bg-lavender-50 shadow-[0_10px_22px_rgba(124,58,237,0.22)]'
+                : 'border-[var(--border-main)] bg-[var(--bg-card)] hover:border-lavender-300'}
             `}
           >
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black flex-shrink-0 ${formData.profissional_id === prof.id ? 'bg-lavender-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black flex-shrink-0 ${
+              formData.profissional_id === prof.id
+                ? 'bg-lavender-600 text-white'
+                : 'bg-[var(--bg-surface)] text-[var(--text-muted)]'
+            }`}>
               {prof.nome.split(' ').slice(0, 2).map(p => p[0]).join('')}
             </div>
             <span className="font-bold text-gray-900 text-sm">{prof.nome}</span>

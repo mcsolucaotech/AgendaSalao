@@ -5,6 +5,7 @@ import { X, User, Phone, Check, Plus, Trash2, Package, ChevronRight } from 'luci
 import { supabase } from '../lib/supabase';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { formatBRL } from '../lib/money';
+import { buildOccupiedSlotSet } from '../lib/scheduling';
 import {
   formatCurrencyFromNumber,
   formatCurrencyMask,
@@ -13,19 +14,18 @@ import {
   sanitizePhone,
   sanitizeText,
   MAX_NAME_LENGTH,
+  MAX_NOTES_LENGTH,
 } from '../lib/validation';
 
 async function fetchSlots(profissionalId, date, excludeIds = []) {
   const { data } = await supabase
     .from('agendamentos')
-    .select('id, data_hora')
+    .select('id, data_hora, observacoes')
     .eq('profissional_id', profissionalId)
     .gte('data_hora', startOfDay(date).toISOString())
     .lte('data_hora', endOfDay(date).toISOString());
 
-  const occupied = new Set((data || [])
-    .filter(d => !excludeIds.includes(d.id))
-    .map(d => parseISO(d.data_hora).getTime()));
+  const occupied = buildOccupiedSlotSet(data || [], { excludeIds });
   const slots = [];
   let cur = new Date(date); cur.setHours(8, 0, 0, 0);
   const end = new Date(date); end.setHours(19, 0, 0, 0);
@@ -57,6 +57,15 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
   const svc  = services.find(s => s.id === item.servico_id);
   const val = parseCurrencyInput(item.valor) ?? 0;
   const isComplete = item.profissional_id && item.servico_id && item.data_hora && item.valor;
+  const cardStyle = isComplete
+    ? {
+      background: 'color-mix(in srgb, var(--accent-main) 12%, var(--bg-card))',
+      borderColor: 'color-mix(in srgb, var(--accent-main) 45%, var(--border-main))',
+    }
+    : {
+      background: 'var(--bg-card)',
+      borderColor: 'var(--border-main)',
+    };
 
   const startMs = item.data_hora     ? parseISO(item.data_hora).getTime()     : null;
   const endMs   = item.data_hora_fim ? parseISO(item.data_hora_fim).getTime() : null;
@@ -96,14 +105,15 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
   };
 
   return (
-    <div className={`rounded-2xl border-2 transition-all overflow-hidden ${
-      isComplete ? 'border-lavender-200 bg-lavender-50/40' : 'border-gray-100 bg-white'
-    }`}>
+    <div
+      className="rounded-2xl border-2 transition-all overflow-hidden"
+      style={cardStyle}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2 min-w-0">
           <span className={`w-6 h-6 rounded-full text-[10px] font-black flex items-center justify-center flex-shrink-0 ${
-            isComplete ? 'bg-lavender-600 text-white' : 'bg-gray-100 text-gray-400'
+            isComplete ? 'bg-lavender-600 text-white' : 'bg-[var(--bg-surface)] text-[var(--text-muted)]'
           }`}>
             {isComplete ? <Check className="w-3 h-3" /> : index + 1}
           </span>
@@ -130,7 +140,9 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
             <button key={p.id}
               onClick={() => onChange({ ...item, profissional_id: p.id, data_hora: '', data_hora_fim: '' })}
               className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all ${
-                item.profissional_id === p.id ? 'bg-lavender-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-lavender-50'
+                item.profissional_id === p.id
+                  ? 'bg-lavender-600 text-white shadow-[0_8px_18px_rgba(124,58,237,0.35)]'
+                  : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-main)] hover:bg-[var(--bg-elevated,var(--bg-surface))] hover:text-[var(--text-main)]'
               }`}>
               {p.nome.split(' ')[0]}
             </button>
@@ -143,7 +155,9 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
             <button key={s.id}
               onClick={() => onChange({ ...item, servico_id: s.id, servico: s.descricao, valor: formatCurrencyFromNumber(s.preco) })}
               className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all ${
-                item.servico_id === s.id ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                item.servico_id === s.id
+                  ? 'bg-lavender-700 text-white shadow-[0_8px_18px_rgba(109,40,217,0.35)]'
+                  : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-main)] hover:bg-[var(--bg-elevated,var(--bg-surface))] hover:text-[var(--text-main)]'
               }`}>
               {s.descricao}
             </button>
@@ -157,10 +171,10 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
               onClick={() => { setPickingSlot(v => !v); setRangeStart(null); }}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all w-full ${
                 isComplete
-                  ? 'bg-lavender-100 text-lavender-700'
+                  ? 'bg-lavender-100 text-lavender-700 border border-lavender-300'
                   : item.data_hora && !item.data_hora_fim
                   ? 'bg-amber-50 text-amber-600 border border-amber-200'
-                  : 'bg-gray-100 text-gray-500 hover:bg-lavender-50'
+                  : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-main)] hover:bg-[var(--bg-elevated,var(--bg-surface))] hover:text-[var(--text-main)]'
               }`}>
               <span className="flex-1 text-left">{rangeLabel()}</span>
               {(item.data_hora || item.data_hora_fim) && (
@@ -207,7 +221,7 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
                             isPick            ? 'bg-amber-400 text-white' : '',
                             inRange           ? 'bg-lavender-100 text-lavender-700' : '',
                             !isStart && !isEnd && !inRange && !isPick
-                              ? 'bg-gray-50 text-gray-600 hover:bg-lavender-50' : '',
+                              ? 'bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-main)] hover:bg-[var(--bg-elevated,var(--bg-surface))] hover:text-[var(--text-main)]' : '',
                           ].filter(Boolean).join(' ')}>
                           {format(slot, 'HH:mm')}
                         </button>
@@ -230,7 +244,7 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
             placeholder={svc ? formatCurrencyFromNumber(svc.preco) : '0,00'}
             value={item.valor}
             onChange={e => onChange({ ...item, valor: formatCurrencyMask(e.target.value) })}
-            className="flex-1 py-2 px-3 bg-gray-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-lavender-400 transition-all"
+            className="flex-1 py-2 px-3 bg-[var(--bg-surface)] border border-[var(--border-main)] rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-lavender-400 transition-all"
           />
         </div>
       </div>
@@ -251,6 +265,15 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
 
   const [clienteNome, setClienteNome] = useState(initialData?.[0]?.cliente_nome || '');
   const [clienteTelefone, setClienteTelefone] = useState(initialData?.[0]?.cliente_telefone || '');
+  const [comboObservacoes, setComboObservacoes] = useState(() => {
+    const raw = String(initialData?.[0]?.observacoes || '');
+    if (!raw) return '';
+    const withoutPeriod = raw
+      .replace(/^Per[íi]odo:\s*\d{1,2}:\d{2}\s*(?:→|->|até|a|[-–—])\s*\d{1,2}:\d{2}\s*(?:\|\s*)?/i, '')
+      .replace(/^Obs:\s*/i, '')
+      .trim();
+    return withoutPeriod;
+  });
 
   const newItem = () => ({ profissional_id: '', servico_id: '', servico: '', data_hora: '', data_hora_fim: '', valor: '' });
 
@@ -300,6 +323,15 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
   const handleSave = async () => {
     const nomeSanitizado = sanitizeText(clienteNome, MAX_NAME_LENGTH);
     const telefoneSanitizado = fmtPhone(clienteTelefone);
+    const observacaoSanitizada = sanitizeText(comboObservacoes, MAX_NOTES_LENGTH);
+    const composeObservacao = (item) => {
+      const period = item.data_hora_fim
+        ? `Período: ${format(parseISO(item.data_hora), 'HH:mm')} → ${format(parseISO(item.data_hora_fim), 'HH:mm')}`
+        : '';
+      if (period && observacaoSanitizada) return `${period} | Obs: ${observacaoSanitizada}`;
+      return period || observacaoSanitizada || '';
+    };
+
     if (!nomeSanitizado) { setError('Informe o nome da cliente.'); return; }
     for (const it of items) {
       if (!isValidIsoDate(it.data_hora) || parseCurrencyInput(it.valor) == null) {
@@ -321,9 +353,7 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
           servico: it.servico,
           data_hora: it.data_hora,
           valor_cobrado: parseCurrencyInput(it.valor),
-          observacoes: it.data_hora_fim
-            ? `Período: ${format(parseISO(it.data_hora), 'HH:mm')} → ${format(parseISO(it.data_hora_fim), 'HH:mm')}`
-            : '',
+          observacoes: composeObservacao(it),
         }).eq('id', it.id)
       );
       const results = await Promise.all(updates);
@@ -342,9 +372,7 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
           servico: it.servico,
           data_hora: it.data_hora,
           valor_cobrado: parseCurrencyInput(it.valor),
-          observacoes: it.data_hora_fim
-            ? `Período: ${format(parseISO(it.data_hora), 'HH:mm')} → ${format(parseISO(it.data_hora_fim), 'HH:mm')}`
-            : '',
+          observacoes: composeObservacao(it),
         }))
       );
       if (err) { setError('Erro ao salvar. Tente novamente.'); setSaving(false); return; }
@@ -462,6 +490,14 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
                       value={clienteTelefone} onChange={e => setClienteTelefone(fmtPhone(e.target.value))}
                       className="w-full pl-10 pr-4 py-3.5 bg-gray-50 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-lavender-400" />
                   </div>
+                  <textarea
+                    placeholder="Observações do combo (ex: cor do cabelo, cor da unha, atendimento especial)"
+                    rows={3}
+                    maxLength={MAX_NOTES_LENGTH}
+                    value={comboObservacoes}
+                    onChange={(e) => setComboObservacoes(e.target.value)}
+                    className="w-full p-3.5 bg-gray-50 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-lavender-400 resize-none"
+                  />
 
                   {error && <p className="text-red-500 text-xs font-bold text-center">{error}</p>}
 

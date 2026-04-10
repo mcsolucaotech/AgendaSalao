@@ -10,6 +10,7 @@ import {
 import Login from './components/Login';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import AppLogo from './components/AppLogo';
+import ThemeSwitcher from './components/ThemeSwitcher';
 
 const BookingForm = lazy(() => import('./components/BookingForm'));
 const ComboForm = lazy(() => import('./components/ComboForm'));
@@ -189,6 +190,7 @@ const MainApp = ({ onLogout }) => {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <ThemeSwitcher />
             {isAdmin && (
               <button
                 onClick={() => setShowAdminDashboard(true)}

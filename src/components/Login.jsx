@@ -4,6 +4,7 @@ import { LogIn, Mail, Lock, Sparkles } from 'lucide-react';
 import { motion as Motion } from 'framer-motion';
 import AppLogo from './AppLogo';
 import { normalizeEmail } from '../lib/validation';
+import ThemeSwitcher from './ThemeSwitcher';
 
 const LOCKOUT_STORAGE_KEY = 'agenda_salao_lockout_until';
 const MAX_LOCAL_ATTEMPTS = 5;
@@ -73,6 +74,9 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-[#FBFBFF] flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-lavender-100 via-white to-white">
+      <div className="w-full max-w-sm sm:max-w-md flex justify-end mb-3">
+        <ThemeSwitcher />
+      </div>
       <Motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
