@@ -27,14 +27,41 @@ export function normalizeEmail(value) {
 }
 
 export function parseCurrencyInput(value) {
-  const normalized = String(value ?? '')
+  const raw = String(value ?? '')
     .trim()
     .replace(/\s/g, '')
-    .replace(',', '.');
+    .replace(/[R$\u00A0]/g, '')
+    .replace(/[^\d,.-]/g, '');
+
+  let normalized = raw;
+  if (raw.includes(',')) {
+    normalized = raw.replace(/\./g, '').replace(',', '.');
+  } else {
+    normalized = raw.replace(/,/g, '');
+  }
 
   const parsed = Number.parseFloat(normalized);
   if (!Number.isFinite(parsed) || parsed < 0) return null;
   return Math.round(parsed * 100) / 100;
+}
+
+export function formatCurrencyMask(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (!digits) return '';
+  const amount = Number.parseInt(digits, 10) / 100;
+  return amount.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+export function formatCurrencyFromNumber(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return '';
+  return amount.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export function clampPercentage(value) {

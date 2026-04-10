@@ -9,6 +9,8 @@ import { supabase } from '../lib/supabase';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { formatBRL } from '../lib/money';
 import {
+  formatCurrencyFromNumber,
+  formatCurrencyMask,
   isValidIsoDate,
   parseCurrencyInput,
   sanitizePhone,
@@ -74,7 +76,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
             servico_id: first.id
           }));
           setPrecoModo('padrao');
-          setValorPersonalizado(Number(first.preco).toFixed(2));
+          setValorPersonalizado(formatCurrencyFromNumber(first.preco));
         } else if (isEditing && initialData && list.length > 0) {
           const svc = list.find((s) => s.id === initialData.servico_id)
             || list.find((s) => s.descricao === initialData.servico);
@@ -85,13 +87,13 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
               : precoTabela;
           if (precoTabela != null && cobrado != null && !Number.isNaN(cobrado) && Math.abs(precoTabela - cobrado) < 0.009) {
             setPrecoModo('padrao');
-            setValorPersonalizado(precoTabela.toFixed(2));
+            setValorPersonalizado(formatCurrencyFromNumber(precoTabela));
           } else if (cobrado != null && !Number.isNaN(cobrado)) {
             setPrecoModo('personalizado');
-            setValorPersonalizado(cobrado.toFixed(2));
+            setValorPersonalizado(formatCurrencyFromNumber(cobrado));
           } else {
             setPrecoModo('padrao');
-            setValorPersonalizado(precoTabela != null ? precoTabela.toFixed(2) : '');
+            setValorPersonalizado(precoTabela != null ? formatCurrencyFromNumber(precoTabela) : '');
           }
         }
       }
@@ -331,7 +333,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
                 servico_id: s.id
               }));
               setPrecoModo('padrao');
-              setValorPersonalizado(Number(s.preco).toFixed(2));
+              setValorPersonalizado(formatCurrencyFromNumber(s.preco));
               setStep(needsProfessionalStep ? 3 : 2);
             }}
             className={`
@@ -462,7 +464,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
                   checked={precoModo === 'padrao'}
                   onChange={() => {
                     setPrecoModo('padrao');
-                    if (!Number.isNaN(precoTabelaServico)) setValorPersonalizado(precoTabelaServico.toFixed(2));
+                    if (!Number.isNaN(precoTabelaServico)) setValorPersonalizado(formatCurrencyFromNumber(precoTabelaServico));
                   }}
                 />
                 <span className="text-sm font-bold text-gray-800">Usar preço da tabela</span>
@@ -476,7 +478,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
                   onChange={() => {
                     setPrecoModo('personalizado');
                     if (!String(valorPersonalizado).trim() && !Number.isNaN(precoTabelaServico)) {
-                      setValorPersonalizado(precoTabelaServico.toFixed(2));
+                      setValorPersonalizado(formatCurrencyFromNumber(precoTabelaServico));
                     }
                   }}
                 />
@@ -491,7 +493,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
                         placeholder="0,00"
                         className="flex-1 min-w-0 py-2.5 px-3 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-lavender-500 outline-none font-bold text-sm"
                         value={valorPersonalizado}
-                        onChange={(e) => setValorPersonalizado(e.target.value)}
+                        onChange={(e) => setValorPersonalizado(formatCurrencyMask(e.target.value))}
                       />
                     </div>
                   )}

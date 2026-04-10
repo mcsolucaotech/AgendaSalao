@@ -15,6 +15,8 @@ import {
 } from '../lib/admin';
 import {
   clampPercentage,
+  formatCurrencyFromNumber,
+  formatCurrencyMask,
   isValidIsoDate,
   parseCurrencyInput,
   sanitizeText,
@@ -325,7 +327,7 @@ const AdminDashboard = ({ onClose }) => {
     setEditingService(service);
     setServiceForm({
       descricao: service.descricao,
-      preco: service.preco.toString()
+      preco: formatCurrencyFromNumber(service.preco)
     });
   };
 
@@ -680,11 +682,11 @@ const AdminDashboard = ({ onClose }) => {
                       className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
                     />
                     <input
-                      type="number"
-                      step="0.01"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="Preço"
                       value={serviceForm.preco}
-                      onChange={(e) => setServiceForm(prev => ({ ...prev, preco: e.target.value }))}
+                      onChange={(e) => setServiceForm(prev => ({ ...prev, preco: formatCurrencyMask(e.target.value) }))}
                       className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
                     />
                     {serviceError && (

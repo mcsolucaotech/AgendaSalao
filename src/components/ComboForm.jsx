@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabase';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { formatBRL } from '../lib/money';
 import {
+  formatCurrencyFromNumber,
+  formatCurrencyMask,
   isValidIsoDate,
   parseCurrencyInput,
   sanitizePhone,
@@ -53,7 +55,7 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
 
   const prof = professionals.find(p => p.id === item.profissional_id);
   const svc  = services.find(s => s.id === item.servico_id);
-  const val  = parseFloat(String(item.valor).replace(',', '.'));
+  const val = parseCurrencyInput(item.valor) ?? 0;
   const isComplete = item.profissional_id && item.servico_id && item.data_hora && item.valor;
 
   const startMs = item.data_hora     ? parseISO(item.data_hora).getTime()     : null;
@@ -111,7 +113,7 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
           {prof && <span className="text-xs text-gray-400 flex-shrink-0">· {prof.nome.split(' ')[0]}</span>}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {isComplete && <span className="text-xs font-black text-lavender-600">{formatBRL(isNaN(val) ? 0 : val)}</span>}
+          {isComplete && <span className="text-xs font-black text-lavender-600">{formatBRL(val)}</span>}
           {canRemove && (
             <button onClick={onRemove} className="w-6 h-6 rounded-lg bg-red-50 text-red-400 flex items-center justify-center hover:bg-red-100 transition-colors">
               <Trash2 className="w-3 h-3" />
@@ -139,7 +141,7 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
         <div className="flex flex-wrap gap-1.5">
           {services.map(s => (
             <button key={s.id}
-              onClick={() => onChange({ ...item, servico_id: s.id, servico: s.descricao, valor: s.preco.toFixed(2) })}
+              onClick={() => onChange({ ...item, servico_id: s.id, servico: s.descricao, valor: formatCurrencyFromNumber(s.preco) })}
               className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all ${
                 item.servico_id === s.id ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
               }`}>
@@ -225,9 +227,9 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400 font-bold">R$</span>
           <input type="text" inputMode="decimal"
-            placeholder={svc ? svc.preco.toFixed(2) : '0,00'}
+            placeholder={svc ? formatCurrencyFromNumber(svc.preco) : '0,00'}
             value={item.valor}
-            onChange={e => onChange({ ...item, valor: e.target.value })}
+            onChange={e => onChange({ ...item, valor: formatCurrencyMask(e.target.value) })}
             className="flex-1 py-2 px-3 bg-gray-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-lavender-400 transition-all"
           />
         </div>
@@ -260,7 +262,7 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
     servico: a.servico || '',
     data_hora: a.data_hora || '',
     data_hora_fim: '',
-    valor: a.valor_cobrado != null ? String(a.valor_cobrado) : '',
+    valor: a.valor_cobrado != null ? formatCurrencyFromNumber(a.valor_cobrado) : '',
   }));
 
   const [items, setItems] = useState(initialData ? itemsFromData(initialData) : [newItem()]);
@@ -284,8 +286,8 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
   );
 
   const total = items.reduce((s, it) => {
-    const v = parseFloat(String(it.valor).replace(',', '.'));
-    return s + (isNaN(v) ? 0 : v);
+    const v = parseCurrencyInput(it.valor);
+    return s + (v == null ? 0 : v);
   }, 0);
 
   const fmtPhone = (v) => {
@@ -428,7 +430,7 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
                   <div className="bg-gray-50 rounded-2xl p-3 space-y-1.5">
                     {items.map((it, i) => {
                       const p = professionals.find(x => x.id === it.profissional_id);
-                      const v = parseFloat(String(it.valor).replace(',', '.'));
+                      const v = parseCurrencyInput(it.valor) ?? 0;
                       const s = format(parseISO(it.data_hora), 'HH:mm');
                       const e = it.data_hora_fim ? format(parseISO(it.data_hora_fim), 'HH:mm') : '';
                       return (
@@ -438,7 +440,7 @@ export default function ComboForm({ selectedDate, onClose, onSave, initialData =
                             <span className="text-gray-400"> · {p?.nome.split(' ')[0]}</span>
                             <span className="text-gray-400"> · {s}{e ? ` → ${e}` : ''}</span>
                           </div>
-                          <span className="font-black text-lavender-600 flex-shrink-0">{formatBRL(isNaN(v) ? 0 : v)}</span>
+                          <span className="font-black text-lavender-600 flex-shrink-0">{formatBRL(v)}</span>
                         </div>
                       );
                     })}
