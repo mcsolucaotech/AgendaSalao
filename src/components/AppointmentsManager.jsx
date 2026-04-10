@@ -10,7 +10,7 @@ import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { filterAppointmentsBySearch, groupAppointmentsByCombo } from '../lib/appointments';
 import { useManagedAppointments } from '../hooks/useManagedAppointments';
 
-const AppointmentsManager = ({ onEdit }) => {
+const AppointmentsManager = ({ onEdit, refreshTrigger = 0 }) => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('upcoming'); // 'upcoming' | 'all'
   const [professionalIdFilter, setProfessionalIdFilter] = useState(''); // '' = todas
@@ -25,7 +25,7 @@ const AppointmentsManager = ({ onEdit }) => {
     refreshAppointments,
     removeAppointment,
     removeCombo,
-  } = useManagedAppointments({ filter, professionalIdFilter });
+  } = useManagedAppointments({ filter, professionalIdFilter, refreshTrigger });
 
   const handleDelete = async (id) => {
     setDeleteLoading(true);
@@ -145,10 +145,10 @@ const AppointmentsManager = ({ onEdit }) => {
                 {group.type === 'single' && (() => {
                   const a = group.item;
                   return (
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden relative">
+                    <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-main)] shadow-sm overflow-hidden relative">
                       <div className="flex items-stretch">
                         {/* Faixa horário */}
-                        <div className="flex flex-col items-center justify-center bg-gray-50 w-14 sm:w-16 py-4 flex-shrink-0 border-r border-gray-100">
+                        <div className="flex flex-col items-center justify-center bg-[var(--bg-surface)] w-14 sm:w-16 py-4 flex-shrink-0 border-r border-[var(--border-main)]">
                           <span className="text-[8px] font-black uppercase text-gray-300">início</span>
                           <span className="text-sm font-black text-gray-700 font-display">{format(parseISO(a.data_hora), 'HH:mm')}</span>
                           <span className="text-[9px] text-gray-400 mt-0.5">{format(parseISO(a.data_hora), 'dd/MM', { locale: ptBR })}</span>
@@ -184,14 +184,14 @@ const AppointmentsManager = ({ onEdit }) => {
                         </div>
                       </div>
                       {/* Ações */}
-                      <div className="flex border-t border-gray-50">
+                      <div className="flex border-t border-[var(--border-main)]">
                         <button onClick={() => onEdit(a)}
-                          className="flex-1 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-lavender-600 hover:bg-lavender-50 transition-all flex items-center justify-center gap-1.5">
+                          className="flex-1 py-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-lavender-600 hover:bg-lavender-50 transition-all flex items-center justify-center gap-1.5">
                           <Edit2 className="w-3 h-3" /> Editar
                         </button>
-                        <div className="w-px bg-gray-50" />
+                        <div className="w-px bg-[var(--border-main)]" />
                         <button onClick={() => setDeletingId(a.id)}
-                          className="flex-1 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center gap-1.5">
+                          className="flex-1 py-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center gap-1.5">
                           <Trash2 className="w-3 h-3" /> Excluir
                         </button>
                       </div>
@@ -199,12 +199,13 @@ const AppointmentsManager = ({ onEdit }) => {
                       <AnimatePresence>
                         {deletingId === a.id && (
                           <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-white/96 z-10 flex flex-col items-center justify-center p-4 text-center">
+                            className="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 text-center"
+                            style={{ background: 'color-mix(in srgb, var(--bg-card) 96%, transparent)' }}>
                             <p className="font-black text-gray-900 mb-1 text-sm">Excluir agendamento?</p>
                             <p className="text-xs text-gray-400 mb-4">Esta ação não pode ser desfeita.</p>
                             <div className="flex gap-2 w-full">
                               <button onClick={() => setDeletingId(null)} disabled={deleteLoading}
-                                className="flex-1 py-2 bg-gray-100 rounded-xl text-gray-500 font-bold text-xs">Cancelar</button>
+                                className="flex-1 py-2 bg-[var(--bg-elevated)] rounded-xl text-[var(--text-muted)] font-bold text-xs">Cancelar</button>
                               <button onClick={() => handleDelete(a.id)} disabled={deleteLoading}
                                 className="flex-1 py-2 bg-red-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1">
                                 {deleteLoading ? <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Confirmar'}
@@ -233,7 +234,7 @@ const AppointmentsManager = ({ onEdit }) => {
                       </span>
                     </div>
                     {/* Itens */}
-                    <div className="divide-y divide-lavender-100 bg-white">
+                    <div className="divide-y divide-[var(--border-main)] bg-[var(--bg-card)]">
                       {group.items.map((a) => (
                         <div key={a.id} className="flex items-center gap-0">
                           <div className="flex flex-col items-center justify-center w-12 sm:w-14 self-stretch py-3 bg-lavender-50 flex-shrink-0">
@@ -264,9 +265,9 @@ const AppointmentsManager = ({ onEdit }) => {
                       ))}
                     </div>
                     {/* Ação excluir combo inteiro */}
-                    <div className="border-t border-lavender-100 bg-white">
+                    <div className="border-t border-[var(--border-main)] bg-[var(--bg-card)]">
                       <button onClick={() => setDeletingId(group.id)}
-                        className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center gap-1.5">
+                        className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center gap-1.5">
                         <Trash2 className="w-3 h-3" /> Excluir combo
                       </button>
                     </div>
@@ -274,12 +275,12 @@ const AppointmentsManager = ({ onEdit }) => {
                     <AnimatePresence>
                       {deletingId === group.id && (
                         <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                          className="relative bg-white border-t border-lavender-100 p-4 text-center">
+                          className="relative bg-[var(--bg-card)] border-t border-[var(--border-main)] p-4 text-center">
                           <p className="font-black text-gray-900 mb-1 text-sm">Excluir combo inteiro?</p>
                           <p className="text-xs text-gray-400 mb-3">Todos os {group.items.length} serviços serão removidos.</p>
                           <div className="flex gap-2">
                             <button onClick={() => setDeletingId(null)} disabled={deleteLoading}
-                              className="flex-1 py-2 bg-gray-100 rounded-xl text-gray-500 font-bold text-xs">Cancelar</button>
+                              className="flex-1 py-2 bg-[var(--bg-elevated)] rounded-xl text-[var(--text-muted)] font-bold text-xs">Cancelar</button>
                             <button
                               onClick={async () => {
                                 setDeleteLoading(true);

@@ -55,8 +55,8 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onAddCombo, 
               {group.type === 'single' && (() => {
                 const a = group.item;
                 return (
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-stretch overflow-hidden">
-                    <div className="flex flex-col items-center justify-center bg-gray-50 w-12 sm:w-14 py-3 flex-shrink-0">
+                  <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-main)] shadow-sm flex items-stretch overflow-hidden">
+                    <div className="flex flex-col items-center justify-center bg-[var(--bg-surface)] w-12 sm:w-14 py-3 flex-shrink-0">
                       <span className="text-[8px] font-black uppercase text-gray-300">início</span>
                       <span className="text-xs sm:text-sm font-black text-gray-700 font-display">{format(parseISO(a.data_hora), 'HH:mm')}</span>
                     </div>
@@ -97,7 +97,7 @@ const TimeSlotList = ({ selectedDate, professionalId, onAddBooking, onAddCombo, 
                       {formatBRL(group.items.reduce((s, x) => s + (Number(x.valor_cobrado) || 0), 0))}
                     </span>
                   </div>
-                  <div className="divide-y divide-lavender-100 bg-white">
+                  <div className="divide-y divide-[var(--border-main)] bg-[var(--bg-card)]">
                     {group.items.map((a, i) => (
                       <div key={a.id} className="flex items-stretch">
                         <div className="flex flex-col items-center justify-center w-12 py-2.5 flex-shrink-0 bg-lavender-50">

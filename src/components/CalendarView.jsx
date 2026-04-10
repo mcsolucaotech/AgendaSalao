@@ -19,7 +19,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-reac
 import { supabase } from '../lib/supabase';
 import { motion as Motion } from 'framer-motion';
 
-const CalendarView = ({ selectedDate, onDateSelect, professionalId }) => {
+const CalendarView = ({ selectedDate, onDateSelect, professionalId, refreshTrigger = 0 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [appointments, setAppointments] = useState([]);
 
@@ -56,19 +56,20 @@ const CalendarView = ({ selectedDate, onDateSelect, professionalId }) => {
     };
 
     fetchAppointments();
-  }, [currentMonth, professionalId]);
+  }, [currentMonth, professionalId, refreshTrigger]);
 
-  const appointmentDayKeys = useMemo(() => {
-    const keys = new Set();
+  const appointmentDayCounts = useMemo(() => {
+    const counts = new Map();
     for (const app of appointments) {
       try {
         const parsed = parseISO(app.data_hora);
-        keys.add(format(parsed, 'yyyy-MM-dd'));
+        const key = format(parsed, 'yyyy-MM-dd');
+        counts.set(key, (counts.get(key) || 0) + 1);
       } catch {
         // ignora registros inválidos para evitar quebrar a renderização
       }
     }
-    return keys;
+    return counts;
   }, [appointments]);
 
   const renderHeader = () => (
@@ -128,7 +129,9 @@ const CalendarView = ({ selectedDate, onDateSelect, professionalId }) => {
         const isSelected = isSameDay(d, selectedDate);
         const isCurrentMonth = isSameMonth(d, monthStart);
         
-        const hasAppointment = appointmentDayKeys.has(format(d, 'yyyy-MM-dd'));
+        const dayKey = format(d, 'yyyy-MM-dd');
+        const appointmentCount = appointmentDayCounts.get(dayKey) || 0;
+        const hasAppointment = appointmentCount > 0;
 
         days.push(
           <Motion.div
@@ -154,16 +157,16 @@ const CalendarView = ({ selectedDate, onDateSelect, professionalId }) => {
               {format(d, 'd')}
             </span>
             {!isPast && hasAppointment && (
-              <div className="absolute -bottom-0.5 sm:-bottom-1 flex gap-0.5 sm:gap-1 z-20">
-                <div className={`
-                  w-1 h-1 sm:w-2 sm:h-2 rounded-full
-                  ${isSelected ? 'bg-white' : 'bg-lavender-500'}
-                  shadow-sm
-                `} />
-                <div className={`
-                  w-1 h-1 sm:w-2 sm:h-2 rounded-full
-                  ${isSelected ? 'bg-white opacity-60' : 'bg-lavender-400 opacity-60'}
-                `} />
+              <div
+                className={`
+                  absolute -bottom-1 sm:-bottom-1.5 z-20
+                  min-w-4 h-4 px-1 rounded-full
+                  flex items-center justify-center
+                  text-[9px] leading-none font-black shadow-sm
+                  ${isSelected ? 'bg-white text-lavender-700' : 'bg-lavender-600 text-white'}
+                `}
+              >
+                {appointmentCount > 9 ? '9+' : appointmentCount}
               </div>
             )}
             {isSameDay(d, today) && !isSelected && (

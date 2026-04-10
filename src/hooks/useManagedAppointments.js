@@ -6,7 +6,7 @@ import {
   fetchProfessionalsBasic,
 } from '../services/appointmentsService';
 
-export function useManagedAppointments({ filter, professionalIdFilter }) {
+export function useManagedAppointments({ filter, professionalIdFilter, refreshTrigger = 0 }) {
   const [appointments, setAppointments] = useState([]);
   const [professionals, setProfessionals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +22,8 @@ export function useManagedAppointments({ filter, professionalIdFilter }) {
   }, []);
 
   const refreshAppointments = useCallback(async () => {
+    // Gatilho externo para forçar refresh após salvar/editar no app
+    void refreshTrigger;
     setLoading(true);
     setError(null);
 
@@ -39,7 +41,7 @@ export function useManagedAppointments({ filter, professionalIdFilter }) {
 
     setAppointments(data || []);
     setLoading(false);
-  }, [filter, professionalIdFilter]);
+  }, [filter, professionalIdFilter, refreshTrigger]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- atualização acontece em retorno assíncrono

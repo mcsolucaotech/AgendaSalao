@@ -17,6 +17,7 @@ export default function ThemeSwitcher({ className = '' }) {
     { value: 'violet', label: 'Violeta', color: '#7c3aed' },
     { value: 'emerald', label: 'Esmeralda', color: '#059669' },
     { value: 'ruby', label: 'Rubi', color: '#e11d48' },
+    { value: 'gray', label: 'Cinza', color: '#4b5563' },
   ];
 
   useEffect(() => {

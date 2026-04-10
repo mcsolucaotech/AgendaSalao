@@ -3,7 +3,7 @@ import { createContext } from 'react';
 export const THEME_STORAGE_KEY = 'agenda_salao_theme';
 export const ACCENT_STORAGE_KEY = 'agenda_salao_accent';
 export const ALLOWED_THEMES = ['light', 'dark', 'system'];
-export const ALLOWED_ACCENTS = ['violet', 'blue', 'emerald', 'ruby'];
+export const ALLOWED_ACCENTS = ['violet', 'blue', 'emerald', 'ruby', 'gray'];
 
 export const ThemeContext = createContext(null);
 

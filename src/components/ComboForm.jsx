@@ -135,33 +135,43 @@ function ItemCard({ index, item, professionals, services, selectedDate, onChange
       {/* Body */}
       <div className="px-4 pb-4 space-y-3">
         {/* Profissional */}
-        <div className="flex flex-wrap gap-1.5">
-          {professionals.map(p => (
-            <button key={p.id}
-              onClick={() => onChange({ ...item, profissional_id: p.id, data_hora: '', data_hora_fim: '' })}
-              className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all ${
-                item.profissional_id === p.id
-                  ? 'bg-lavender-600 text-white shadow-[0_8px_18px_rgba(124,58,237,0.35)]'
-                  : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-main)] hover:bg-[var(--bg-elevated,var(--bg-surface))] hover:text-[var(--text-main)]'
-              }`}>
-              {p.nome.split(' ')[0]}
-            </button>
-          ))}
+        <div className="rounded-2xl border border-[var(--border-main)] bg-[var(--bg-surface)]/75 p-2.5 space-y-2">
+          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--text-subtle)] px-0.5">
+            Profissional
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {professionals.map(p => (
+              <button key={p.id}
+                onClick={() => onChange({ ...item, profissional_id: p.id, data_hora: '', data_hora_fim: '' })}
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all border ${
+                  item.profissional_id === p.id
+                    ? 'bg-lavender-600 text-white border-lavender-500 shadow-[0_8px_18px_rgba(124,58,237,0.35)]'
+                    : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-main)] hover:bg-[var(--bg-elevated,var(--bg-surface))] hover:text-[var(--text-main)]'
+                }`}>
+                {p.nome.split(' ')[0]}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Serviço */}
-        <div className="flex flex-wrap gap-1.5">
-          {services.map(s => (
-            <button key={s.id}
-              onClick={() => onChange({ ...item, servico_id: s.id, servico: s.descricao, valor: formatCurrencyFromNumber(s.preco) })}
-              className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all ${
-                item.servico_id === s.id
-                  ? 'bg-lavender-700 text-white shadow-[0_8px_18px_rgba(109,40,217,0.35)]'
-                  : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-main)] hover:bg-[var(--bg-elevated,var(--bg-surface))] hover:text-[var(--text-main)]'
-              }`}>
-              {s.descricao}
-            </button>
-          ))}
+        <div className="rounded-2xl border border-[color-mix(in_srgb,var(--accent-main)_35%,var(--border-main))] bg-[color-mix(in_srgb,var(--accent-main)_8%,var(--bg-card))] p-2.5 space-y-2">
+          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[color-mix(in_srgb,var(--accent-main)_75%,var(--text-muted))] px-0.5">
+            Serviço
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {services.map(s => (
+              <button key={s.id}
+                onClick={() => onChange({ ...item, servico_id: s.id, servico: s.descricao, valor: formatCurrencyFromNumber(s.preco) })}
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all border ${
+                  item.servico_id === s.id
+                    ? 'bg-lavender-700 text-white border-lavender-600 shadow-[0_8px_18px_rgba(109,40,217,0.35)]'
+                    : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-main)] hover:bg-[var(--bg-elevated,var(--bg-surface))] hover:text-[var(--text-main)]'
+                }`}>
+                {s.descricao}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Horário — range picker */}

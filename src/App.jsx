@@ -65,6 +65,7 @@ const MainApp = ({ onLogout }) => {
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userName, setUserName] = useState('');
+  const [refreshVersion, setRefreshVersion] = useState(0);
 
   useEffect(() => {
     const fetchProfessionals = async () => {
@@ -122,12 +123,14 @@ const MainApp = ({ onLogout }) => {
     setShowBookingForm(false);
     setEditingAppointment(null);
     setSelectedDate(d => new Date(d));
+    setRefreshVersion((v) => v + 1);
   };
 
   const handleComboSave = () => {
     setShowComboForm(false);
     setEditingCombo(null);
     setSelectedDate(d => new Date(d));
+    setRefreshVersion((v) => v + 1);
   };
 
   // ---- Loading state ----
@@ -282,6 +285,7 @@ const MainApp = ({ onLogout }) => {
                 selectedDate={selectedDate}
                 onDateSelect={setSelectedDate}
                 professionalId={selectedProfessionalId}
+                refreshTrigger={refreshVersion}
               />
               <TimeSlotList
                 selectedDate={selectedDate}
@@ -303,7 +307,7 @@ const MainApp = ({ onLogout }) => {
                 exit={{ opacity: 0, x: -20 }}
                 className="pb-32 sm:pb-36"
               >
-                <AppointmentsManager onEdit={handleEdit} />
+                <AppointmentsManager onEdit={handleEdit} refreshTrigger={refreshVersion} />
               </Motion.div>
             </Suspense>
           )}
