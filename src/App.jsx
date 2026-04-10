@@ -301,6 +301,7 @@ const MainApp = ({ onLogout }) => {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
+                className="pb-32 sm:pb-36"
               >
                 <AppointmentsManager onEdit={handleEdit} />
               </Motion.div>

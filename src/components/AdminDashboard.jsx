@@ -53,6 +53,7 @@ const AdminDashboard = ({ onClose }) => {
     percentual_salao: ''
   });
   const [professionalError, setProfessionalError] = useState('');
+  const [changePasswordOnEdit, setChangePasswordOnEdit] = useState(false);
 
   // Confirmação de exclusão inline
   const [confirmDelete, setConfirmDelete] = useState(null); // { type: 'service'|'professional', id }
@@ -224,8 +225,8 @@ const AdminDashboard = ({ onClose }) => {
     setProfessionalError('');
     const nome = sanitizeText(professionalForm.nome, MAX_NAME_LENGTH);
     if (!nome) { setProfessionalError('Nome é obrigatório.'); return; }
-    if (!professionalForm.senha || professionalForm.senha.length < 8 || professionalForm.senha.length > 72) {
-      setProfessionalError('Senha deve ter entre 8 e 72 caracteres.');
+    if (!professionalForm.senha || professionalForm.senha.length < 6) {
+      setProfessionalError('Senha deve ter no mínimo 6 caracteres.');
       return;
     }
 
@@ -278,6 +279,10 @@ const AdminDashboard = ({ onClose }) => {
     setProfessionalError('');
     const nome = sanitizeText(professionalForm.nome, MAX_NAME_LENGTH);
     if (!editingProfessional || !nome) { setProfessionalError('Nome é obrigatório.'); return; }
+    if (changePasswordOnEdit && (!professionalForm.senha || professionalForm.senha.length < 6)) {
+      setProfessionalError('Nova senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
 
     const percentual = clampPercentage(professionalForm.percentual_salao);
     if (professionalForm.percentual_salao !== '' && percentual == null) {
@@ -286,10 +291,33 @@ const AdminDashboard = ({ onClose }) => {
     }
 
     try {
-      const updateData = {
-        nome,
-        percentual_salao: percentual,
-      };
+      if (changePasswordOnEdit) {
+        if (!editingProfessional.user_id) {
+          setProfessionalError('Profissional sem vínculo de usuário para troca de senha.');
+          return;
+        }
+
+        const { error: passwordError } = await supabase.rpc('update_professional_password', {
+          p_user_id: editingProfessional.user_id,
+          p_password: professionalForm.senha,
+        });
+
+        if (passwordError) {
+          const functionMissing = passwordError.code === 'PGRST202'
+            || /update_professional_password/i.test(passwordError.message || '');
+          if (functionMissing) {
+            setProfessionalError('Função de troca de senha não configurada no banco. Execute o SQL: docs/supabase/update_professional_password.sql');
+            return;
+          }
+          setProfessionalError(`Não foi possível alterar a senha: ${passwordError.message || 'erro desconhecido.'}`);
+          return;
+        }
+      }
+
+      const updateData = { nome };
+      if (professionalForm.percentual_salao !== '') {
+        updateData.percentual_salao = percentual;
+      }
 
       const { error } = await supabase
         .from('profissionais')
@@ -299,11 +327,12 @@ const AdminDashboard = ({ onClose }) => {
       if (error) throw error;
 
       setEditingProfessional(null);
+      setChangePasswordOnEdit(false);
       setProfessionalForm({ nome: '', senha: '', percentual_salao: '' });
       loadData();
     } catch (error) {
       console.error('Erro ao editar profissional:', error);
-      setProfessionalError('Não foi possível atualizar o profissional.');
+      setProfessionalError(`Não foi possível atualizar o profissional: ${error?.message || 'erro desconhecido.'}`);
     }
   };
 
@@ -340,6 +369,7 @@ const AdminDashboard = ({ onClose }) => {
 
   const startEditProfessional = (professional) => {
     setProfessionalError('');
+    setChangePasswordOnEdit(false);
     setEditingProfessional(professional);
     setProfessionalForm({
       nome: professional.nome,
@@ -765,6 +795,34 @@ const AdminDashboard = ({ onClose }) => {
                         className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
                       />
                     )}
+                    {editingProfessional && (
+                      <div className="space-y-2">
+                        <label className="inline-flex items-center gap-2 text-xs font-bold text-gray-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={changePasswordOnEdit}
+                            onChange={(e) => {
+                              const enabled = e.target.checked;
+                              setChangePasswordOnEdit(enabled);
+                              if (!enabled) {
+                                setProfessionalForm((prev) => ({ ...prev, senha: '' }));
+                              }
+                            }}
+                            className="w-4 h-4 accent-lavender-600"
+                          />
+                          Alterar senha desta profissional
+                        </label>
+                        {changePasswordOnEdit && (
+                          <input
+                            type="password"
+                            placeholder="Nova senha (mínimo 6 caracteres)"
+                            value={professionalForm.senha}
+                            onChange={(e) => setProfessionalForm((prev) => ({ ...prev, senha: e.target.value }))}
+                            className="w-full p-3 sm:p-4 border border-gray-200 rounded-lg sm:rounded-2xl focus:ring-2 focus:ring-lavender-500 outline-none text-sm sm:text-base"
+                          />
+                        )}
+                      </div>
+                    )}
                     <div>
                       <label className="block text-[9px] sm:text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Percentual do Salão (%)</label>
                       <div className="relative">
@@ -793,6 +851,7 @@ const AdminDashboard = ({ onClose }) => {
                       onClick={() => {
                         setShowAddProfessional(false);
                         setEditingProfessional(null);
+                        setChangePasswordOnEdit(false);
                         setProfessionalError('');
                         setProfessionalForm({ nome: '', senha: '', percentual_salao: '' });
                       }}

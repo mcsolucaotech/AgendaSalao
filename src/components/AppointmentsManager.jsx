@@ -53,7 +53,7 @@ const AppointmentsManager = ({ onEdit }) => {
   );
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-1 sm:px-4 md:px-0">
+    <div className="space-y-4 sm:space-y-6 px-1 sm:px-4 md:px-0 pb-36 sm:pb-40">
       {/* Busca e filtros */}
       <div className="space-y-3 sm:space-y-4">
         <div className="relative group">
