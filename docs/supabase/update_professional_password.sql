@@ -10,9 +10,23 @@ create or replace function public.update_professional_password(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, auth, extensions
 as $$
+declare
+  v_role text;
 begin
+  -- Segurança: garante que apenas admin autenticado via JWT execute a troca
+  v_role := coalesce(
+    auth.jwt() -> 'user_metadata' ->> 'role',
+    auth.jwt() -> 'app_metadata' ->> 'role',
+    auth.jwt() ->> 'role',
+    ''
+  );
+
+  if v_role <> 'admin' then
+    raise exception 'Apenas administradores podem alterar senha de profissionais';
+  end if;
+
   if p_user_id is null then
     raise exception 'p_user_id é obrigatório';
   end if;

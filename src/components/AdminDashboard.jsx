@@ -337,16 +337,26 @@ const AdminDashboard = ({ onClose }) => {
   };
 
   const handleDeleteProfessional = async (id) => {
+    setProfessionalError('');
     try {
-      const { error } = await supabase
-        .from('profissionais')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.rpc('delete_professional_account', {
+        p_professional_id: id,
+      });
 
-      if (error) throw error;
+      if (error) {
+        const functionMissing = error.code === 'PGRST202'
+          || /delete_professional_account/i.test(error.message || '');
+        if (functionMissing) {
+          setProfessionalError('Função de exclusão não configurada no banco. Execute o SQL: docs/supabase/delete_professional_account.sql');
+          return;
+        }
+        throw error;
+      }
+      setProfessionalError('');
       loadData();
     } catch (error) {
       console.error('Erro ao excluir profissional:', error);
+      setProfessionalError(`Não foi possível excluir profissional: ${error?.message || 'erro desconhecido.'}`);
     }
   };
 
@@ -506,6 +516,9 @@ const AdminDashboard = ({ onClose }) => {
                     <span className="hidden sm:inline">Adicionar</span>
                   </button>
                 </div>
+                {professionalError && (
+                  <p className="text-red-500 text-xs sm:text-sm font-bold">{professionalError}</p>
+                )}
 
                 <div className="space-y-2 sm:space-y-3">
                   {professionals.map((professional) => (
@@ -526,7 +539,7 @@ const AdminDashboard = ({ onClose }) => {
                       <div className="flex gap-2 self-end sm:self-auto">
                         {confirmDelete?.type === 'professional' && confirmDelete?.id === professional.id ? (
                           <>
-                            <button onClick={() => { handleDeleteProfessional(professional.id); setConfirmDelete(null); }} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-black hover:bg-red-700 transition-colors">Confirmar</button>
+                            <button onClick={async () => { await handleDeleteProfessional(professional.id); setConfirmDelete(null); }} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-black hover:bg-red-700 transition-colors">Confirmar</button>
                             <button onClick={() => setConfirmDelete(null)} className="px-3 py-1.5 rounded-lg bg-gray-200 text-gray-600 text-xs font-black hover:bg-gray-300 transition-colors">Cancelar</button>
                           </>
                         ) : (
