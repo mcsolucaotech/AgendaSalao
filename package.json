@@ -1,8 +1,8 @@
 {
-  "name": "@mcsolucaotech/agenda-salao",
+  "name": "@kairosdedeus/agenda-salao",
   "private": false,
   "version": "0.0.0",
-  "homepage": "https://mcsolucaotech.github.io/AgendaSalao",
+  "homepage": "https://kairosdedeus.github.io/AgendaSalao",
   "type": "module",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
