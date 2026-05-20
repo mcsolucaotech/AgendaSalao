@@ -145,7 +145,7 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
 
       const slots = [];
       let current = new Date(selectedDate);
-      current.setHours(8, 0, 0, 0);
+      current.setHours(7, 0, 0, 0);
       const dayEnd = new Date(selectedDate);
       dayEnd.setHours(19, 0, 0, 0);
 
@@ -153,7 +153,8 @@ const BookingForm = ({ selectedDate, professionalId, onClose, onSave, initialDat
       const isToday = current.toDateString() === now.toDateString();
 
       while (current <= dayEnd) {
-        const isPast = isToday && current <= now;
+        const slotEnd = addMinutes(current, 30);
+        const isPast = isToday && slotEnd <= now;
         if (!occupied.has(current.getTime()) && !isPast) {
           slots.push(new Date(current));
         }

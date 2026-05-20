@@ -27,13 +27,14 @@ async function fetchSlots(profissionalId, date, excludeIds = []) {
 
   const occupied = buildOccupiedSlotSet(data || [], { excludeIds });
   const slots = [];
-  let cur = new Date(date); cur.setHours(8, 0, 0, 0);
+  let cur = new Date(date); cur.setHours(7, 0, 0, 0);
   const end = new Date(date); end.setHours(19, 0, 0, 0);
   const now = new Date();
   const isToday = cur.toDateString() === now.toDateString();
 
   while (cur <= end) {
-    if (!occupied.has(cur.getTime()) && !(isToday && cur <= now))
+    const slotEnd = addMinutes(cur, 30);
+    if (!occupied.has(cur.getTime()) && !(isToday && slotEnd <= now))
       slots.push(new Date(cur));
     cur = addMinutes(cur, 30);
   }
